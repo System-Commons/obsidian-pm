@@ -32,10 +32,6 @@
   margin-top: 12px;
 }
 
-.pm-modal--create {
-  max-width: 560px;
-}
-
 .pm-edit-desc {
   min-height: 72px;
   resize: vertical;

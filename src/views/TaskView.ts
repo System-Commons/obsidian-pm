@@ -6,10 +6,9 @@ import { TaskEditor } from '../modals/TaskEditor'
 
 export const PM_TASK_VIEW_TYPE = 'pm-task'
 
-/** `filePath` addresses an existing task note; a new task has only its project and parent. */
+/** `filePath` addresses an existing task note; a new task has only its parent and defaults. */
 export interface TaskViewState {
   filePath?: string
-  projectPath?: string
   parentId?: string | null
   defaults?: Partial<Task>
   [key: string]: unknown
@@ -68,11 +67,10 @@ export class TaskView extends ItemView {
     this.editor = null
     this.contentEl.empty()
 
-    const { filePath, projectPath, parentId, defaults } = this.state
-    const resolvedProjectPath = projectPath ?? (filePath ? this.plugin.index.projectPathForTask(filePath) : null)
-    const project = resolvedProjectPath ? await this.plugin.store.loadProjectByPath(resolvedProjectPath) : null
+    const { filePath, parentId, defaults } = this.state
+    const project = await this.plugin.project()
     if (!project) {
-      this.showMissing('This note does not belong to a project.')
+      this.showMissing('This vault has no project yet.')
       return
     }
 

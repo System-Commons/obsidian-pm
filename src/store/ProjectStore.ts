@@ -8,7 +8,6 @@ import {
   type StatusConfig,
   type Task,
   DEFAULT_SETTINGS,
-  makeId,
   makeProject,
   makeTask,
   today,
@@ -23,7 +22,6 @@ import {
   indexSetParent,
   rebuildTaskIndex,
   addTaskToTree,
-  cloneTaskForest,
   cloneTaskSubtree,
   deleteTaskFromTree,
   flattenTasks,
@@ -57,7 +55,6 @@ import {
   projectFolderOf,
   projectTaskFolder,
   resolveVaultLink,
-  TASK_FOLDER_NAME,
   projectFilePath
 } from './vaultFs'
 import type { ImportNoteOptions, TaskSource } from './TaskSource'
@@ -139,8 +136,6 @@ export class ProjectStore implements TaskSource {
   /** Paths we wrote ourselves, timestamped, so vault listeners can ignore the echo. */
   private selfWrites = new Map<string, number>()
   private static readonly SELF_WRITE_WINDOW_MS = 5000
-
-  private static readonly MAX_SCHEDULE_ROUNDS = 10
 
   constructor(
     private app: App,
@@ -365,12 +360,6 @@ export class ProjectStore implements TaskSource {
 
   async ensureFolder(folderPath: string): Promise<void> {
     await ensureFolder(this.app, folderPath)
-  }
-
-  async loadProjects(paths: string[]): Promise<Project[]> {
-    const loaded = await Promise.all(paths.map((path) => this.loadProjectByPath(path)))
-    const projects = loaded.filter((p): p is Project => p !== null)
-    return projects.sort((a, b) => a.title.localeCompare(b.title))
   }
 
   async loadProjectByPath(path: string): Promise<Project | null> {
@@ -832,53 +821,6 @@ export class ProjectStore implements TaskSource {
     return project
   }
 
-  /**
-   * The task folder moves first: once it is gone from beside the note, the rename below
-   * reads as a plain move and the vault listener has nothing left to follow. The note goes
-   * through `vault.rename`, not `fileManager.renameFile`: its name does not change, so the
-   * wikilinks that name it keep resolving, and Obsidian's link pass stalls for a long time
-   * on a note taking its folder's name. The one link that does name a path, a sub-project's
-   * `parent`, is rewritten here.
-   */
-  async moveProjectIntoOwnFolder(projectPath: string): Promise<string | null> {
-    const file = this.app.vault.getAbstractFileByPath(projectPath)
-    if (!(file instanceof TFile) || projectFolderOf(this.app, projectPath)) return null
-
-    const dir = folderOf(projectPath)
-    const target = normalizePath(dir ? `${dir}/${file.basename}` : file.basename)
-    if (this.app.vault.getAbstractFileByPath(target) instanceof TFile) return null
-
-    const tasks = this.app.vault.getAbstractFileByPath(projectTaskFolder(this.app, projectPath))
-    await this.ensureFolder(target)
-    if (tasks instanceof TFolder) {
-      const tasksTarget = normalizePath(`${target}/${TASK_FOLDER_NAME}`)
-      if (!this.app.vault.getAbstractFileByPath(tasksTarget)) {
-        this.markSelfWrite(tasks.path)
-        this.markSelfWrite(tasksTarget)
-        await this.app.vault.rename(tasks, tasksTarget)
-      }
-    }
-
-    const notePath = normalizePath(`${target}/${file.name}`)
-    this.markSelfWrite(projectPath)
-    this.markSelfWrite(notePath)
-    await this.app.vault.rename(file, notePath)
-    await this.rekeyProject(projectPath, notePath)
-    return notePath
-  }
-
-  /** The `parent` link names a path, so a parent that moved has to be written again. */
-  async repointProjectParent(childPath: string, parentPath: string): Promise<void> {
-    const child = this.app.vault.getAbstractFileByPath(childPath)
-    if (!(child instanceof TFile)) return
-    this.markSelfWrite(childPath)
-    await this.app.fileManager.processFrontMatter(child, (fm: Record<string, unknown>) => {
-      fm.parent = `[[${parentPath.replace(/\.md$/, '')}]]`
-    })
-    const live = await this.projectCache.get(childPath)
-    if (live) live.parentPath = parentPath
-  }
-
   async insertTask(project: Project, task: Task, parentId: string | null = null): Promise<void> {
     if (!task.completed && isTerminalStatus(task.status, this.statusesFor(project))) {
       task.completed = today().toString()
@@ -1017,60 +959,6 @@ export class ProjectStore implements TaskSource {
     return copy
   }
 
-  /**
-   * A full copy of a project under a new title, created beside the source: every task
-   * cloned with a fresh id, dependencies inside the project remapped to the clones, and
-   * the description, palette, saved views, and settings carried over. A dependency on
-   * another project's task still targets that task.
-   */
-  async duplicateProject(source: Project, title: string): Promise<Project> {
-    const dir = folderOf(projectFolderOf(this.app, source.filePath) ?? source.filePath)
-    const filePath = projectFilePath(title, dir)
-    if (this.app.vault.getAbstractFileByPath(filePath) || this.app.vault.getAbstractFileByPath(folderOf(filePath))) {
-      throw new Error(`A project named "${title}" already exists here.`)
-    }
-
-    await this.loadProjectBody(source)
-    for (const { task } of flattenTasks(source.tasks)) await this.loadTaskBody(task)
-
-    const project = makeProject(title, filePath)
-    project.description = source.description
-    project.color = source.color
-    project.icon = source.icon
-    project.customFields = structuredClone(source.customFields)
-    project.teamMembers = [...source.teamMembers]
-    project.savedViews = structuredClone(source.savedViews)
-    project.parentPath = source.parentPath
-    if (source.config) project.config = structuredClone(source.config)
-    project.tasks = cloneTaskForest(source.tasks)
-    rebuildTaskIndex(project)
-    this.hydratedBodies.add(project)
-    for (const { task } of flattenTasks(project.tasks)) this.hydratedBodies.add(task)
-    await this.saveProject(project)
-    return project
-  }
-
-  async reassignIds(project: Project, taskIds: string[], newProjectId: boolean): Promise<void> {
-    const mapping = new Map<string, string>()
-    for (const id of taskIds) {
-      // Only ids the project owns: an id it doesn't could be an external dependency,
-      // and remapping that would point it at a task that doesn't exist.
-      if (project.taskIndex.has(id)) mapping.set(id, makeId())
-    }
-    if (mapping.size === 0 && !newProjectId) return
-    for (const { task } of flattenTasks(project.tasks)) {
-      const fresh = mapping.get(task.id)
-      if (fresh) task.id = fresh
-      if (task.dependencies.some((dep) => mapping.has(dep))) {
-        task.dependencies = task.dependencies.map((dep) => mapping.get(dep) ?? dep)
-      }
-    }
-    if (newProjectId) project.id = makeId()
-    rebuildTaskIndex(project)
-    this.markAllDirty(project, 'fm')
-    await this.saveProject(project)
-  }
-
   private assignCopyName(task: Task, folder: string, usedTitles: Set<string>, claimed: Set<string>): void {
     const base = task.title.replace(/(?: \(copy(?: \d+)?\))+$/, '')
     for (let n = 1; ; n++) {
@@ -1089,57 +977,6 @@ export class ProjectStore implements TaskSource {
         return
       }
     }
-  }
-
-  /**
-   * Hand a task and its subtasks to another project: the files move into that project's
-   * folder and the task ids stay put, so dependencies pointing at it keep resolving.
-   */
-  async moveTaskToProject(
-    from: Project,
-    to: Project,
-    taskId: string,
-    newParentId: string | null = null
-  ): Promise<void> {
-    if (from.filePath === to.filePath) return
-    const task = findTaskById(from, taskId)
-    if (!task) return
-
-    const oldParentId = findParentId(from, taskId)
-    deleteTaskFromTree(from.tasks, taskId)
-    indexRemoveSubtree(from, task)
-    if (oldParentId) this.markDirty(from, [oldParentId], 'full')
-
-    const targetFolder = projectTaskFolder(this.app, to.filePath)
-    await this.ensureFolder(targetFolder)
-    for (const moved of [task, ...flattenTasks(task.subtasks).map((ft) => ft.task)]) {
-      // The file lands in the target folder under the same name; dropping filePath here
-      // would lose the body of a task whose description was never read.
-      if (moved.filePath) {
-        const fileName = moved.filePath.slice(moved.filePath.lastIndexOf('/') + 1)
-        const dest = this.uniqueChildPath(
-          moved.archived ? normalizePath(targetFolder + '/Archive') : targetFolder,
-          fileName
-        )
-        const file = this.app.vault.getAbstractFileByPath(moved.filePath)
-        if (file instanceof TFile) {
-          if (moved.archived) await this.ensureFolder(normalizePath(targetFolder + '/Archive'))
-          this.markSelfWrite(moved.filePath)
-          this.markSelfWrite(dest)
-          await this.app.fileManager.renameFile(file, dest)
-          await moveTaskAttachmentFolder(this.app, moved.filePath, dest)
-          moved.filePath = dest
-        }
-      }
-    }
-
-    addTaskToTree(to.tasks, task, newParentId)
-    indexAddSubtree(to, task, newParentId)
-    this.markSubtreeDirty(to, task.id, 'full')
-    if (newParentId) this.markDirty(to, [newParentId], 'full')
-
-    await this.saveProject(from)
-    await this.saveProject(to)
   }
 
   async moveTask(project: Project, taskId: string, newParentId: string | null): Promise<void> {
@@ -1191,17 +1028,7 @@ export class ProjectStore implements TaskSource {
   }
 
   private async scheduleAfterEarlyFinish(project: Project, taskIds: string[]): Promise<void> {
-    if (taskIds.length === 0) return
-    // A project that doesn't pull its own tasks forward still lets the projects waiting
-    // on it pull theirs.
-    if (!this.configFor(project).pullForwardOnEarlyFinish) {
-      const elsewhere = this.dependentsElsewhere(
-        this.index?.dependentsMap() ?? new Map<string, string[]>(),
-        project,
-        taskIds
-      )
-      if (elsewhere.size === 0) return
-    }
+    if (taskIds.length === 0 || !this.configFor(project).pullForwardOnEarlyFinish) return
     for (const id of taskIds) await this.scheduleAfterChange(project, id)
   }
 
@@ -1392,29 +1219,29 @@ export class ProjectStore implements TaskSource {
     return candidate
   }
 
+  /**
+   * The task folder and the note go; the folder around them only when it was the
+   * project's own and nothing else is left in it. A note moved into a folder full of
+   * other notes must not take that folder with it.
+   */
   async deleteProject(project: Project): Promise<void> {
-    // The whole folder goes, unless a sub-project is nested in it and would go with it.
-    const own = projectFolderOf(this.app, project.filePath)
-    const holdsOthers = own !== null && this.projectPathsInside(own).some((path) => path !== project.filePath)
-    const doomed = own && !holdsOthers ? own : projectTaskFolder(this.app, project.filePath)
-    const target = this.app.vault.getAbstractFileByPath(doomed)
-    if (target instanceof TFolder) {
+    const tasks = this.app.vault.getAbstractFileByPath(projectTaskFolder(this.app, project.filePath))
+    if (tasks instanceof TFolder) {
       this.markSelfWrite(project.filePath)
-      await this.deleteFolderRecursive(target)
+      await this.deleteFolderRecursive(tasks)
     }
     const file = this.app.vault.getAbstractFileByPath(project.filePath)
     if (file instanceof TFile) {
       this.markSelfWrite(project.filePath)
       await this.app.fileManager.trashFile(file)
     }
+    const own = projectFolderOf(this.app, project.filePath)
+    const folder = own ? this.app.vault.getAbstractFileByPath(own) : null
+    if (folder instanceof TFolder && folder.children.length === 0) await this.app.fileManager.trashFile(folder)
     this.clearDirty(project)
     this.saveQueues.delete(project.filePath)
     this.projectCache.delete(project.filePath)
     this.emitChange(project.filePath)
-  }
-
-  private projectPathsInside(folder: string): string[] {
-    return (this.index?.projectPaths() ?? []).filter((path) => path.startsWith(folder + '/'))
   }
 
   private async deleteFolderRecursive(folder: TFolder): Promise<void> {
@@ -1429,131 +1256,23 @@ export class ProjectStore implements TaskSource {
     await this.app.fileManager.trashFile(folder)
   }
 
-  /**
-   * Predecessors this project's tasks depend on that live in other projects. A project
-   * already loaded in this pass contributes the live task, because the index still holds
-   * the dates from before this pass moved them.
-   */
-  private externalPredecessors(project: Project, loaded: Map<string, Project>): Task[] {
-    const externals: Task[] = []
-    const seen = new Set<string>()
-    for (const { task } of flattenTasks(project.tasks)) {
-      for (const depId of task.dependencies) {
-        if (project.taskIndex.has(depId) || seen.has(depId)) continue
-        seen.add(depId)
-        const live = this.liveTask(depId, loaded)
-        if (live) {
-          externals.push(live)
-          continue
-        }
-        const ref = this.index?.task(depId)
-        if (!ref) continue
-        externals.push(
-          makeTask({
-            id: ref.id,
-            title: ref.title,
-            status: ref.status,
-            start: ref.start,
-            due: ref.due,
-            completed: ref.completed,
-            archived: ref.archived
-          })
-        )
-      }
-    }
-    return externals
-  }
-
-  private liveTask(taskId: string, loaded: Map<string, Project>): Task | null {
-    for (const candidate of loaded.values()) {
-      const found = candidate.taskIndex.get(taskId)?.task
-      if (found) return found
-    }
-    return null
-  }
-
-  /**
-   * Apply dependency-based scheduling and save, returning the number of tasks adjusted.
-   * A dependency chain can leave the project it starts in, so every project holding a
-   * task that waits on one this pass moved gets its own pass, against its own config. A
-   * project with auto-scheduling off keeps its dates and still passes the change along.
-   */
+  /** Apply dependency-based scheduling and save, returning the number of tasks adjusted. */
   async scheduleAfterChange(project: Project, changedTaskId?: string): Promise<number> {
-    const loaded = new Map<string, Project>([[project.filePath, project]])
-    const dependentsOf = this.index?.dependentsMap() ?? new Map<string, string[]>()
-    let frontier: { project: Project; seeds: string[] | undefined }[] = [
-      { project, seeds: changedTaskId === undefined ? undefined : [changedTaskId] }
-    ]
-    let total = 0
-
-    for (let round = 0; round < ProjectStore.MAX_SCHEDULE_ROUNDS && frontier.length > 0; round++) {
-      const nextSeeds = new Map<string, Set<string>>()
-      for (const job of frontier) {
-        const moved = await this.schedulePass(job.project, job.seeds, loaded)
-        total += moved.length
-        for (const [path, ids] of this.dependentsElsewhere(
-          dependentsOf,
-          job.project,
-          job.seeds ? [...job.seeds, ...moved] : moved
-        )) {
-          const bucket = nextSeeds.get(path) ?? new Set<string>()
-          for (const id of ids) bucket.add(id)
-          nextSeeds.set(path, bucket)
-        }
-      }
-
-      frontier = []
-      for (const [path, ids] of nextSeeds) {
-        const target = loaded.get(path) ?? (await this.loadProjectByPath(path))
-        if (!target) continue
-        loaded.set(path, target)
-        frontier.push({ project: target, seeds: [...ids] })
-      }
-    }
-    return total
-  }
-
-  private async schedulePass(
-    project: Project,
-    seeds: string[] | undefined,
-    loaded: Map<string, Project>
-  ): Promise<string[]> {
     const config = this.configFor(project)
-    if (!config.autoSchedule) return []
+    if (!config.autoSchedule) return 0
     const { patches } = computeSchedule(
       project.tasks,
-      seeds,
+      changedTaskId === undefined ? undefined : [changedTaskId],
       config.statuses,
-      config.pullForwardOnEarlyFinish,
-      this.externalPredecessors(project, loaded)
+      config.pullForwardOnEarlyFinish
     )
-    if (patches.length === 0) return []
+    if (patches.length === 0) return 0
 
     for (const p of patches) {
       updateTaskInTree(project.tasks, p.taskId, { start: p.start, due: p.due })
       this.markDirty(project, [p.taskId], 'fm')
     }
     await this.saveProject(project)
-    return patches.map((p) => p.taskId)
-  }
-
-  /** Tasks outside `project` waiting on any of `movedIds`, grouped by their project. */
-  private dependentsElsewhere(
-    dependentsOf: Map<string, string[]>,
-    project: Project,
-    movedIds: string[]
-  ): Map<string, string[]> {
-    const byProject = new Map<string, string[]>()
-    for (const movedId of movedIds) {
-      for (const dependentId of dependentsOf.get(movedId) ?? []) {
-        if (project.taskIndex.has(dependentId)) continue
-        const ref = this.index?.task(dependentId)
-        if (!ref?.projectPath || ref.archived) continue
-        const list = byProject.get(ref.projectPath) ?? []
-        if (!list.includes(dependentId)) list.push(dependentId)
-        byProject.set(ref.projectPath, list)
-      }
-    }
-    return byProject
+    return patches.length
   }
 }

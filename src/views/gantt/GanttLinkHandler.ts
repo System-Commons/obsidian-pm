@@ -1,6 +1,6 @@
 import { Notice } from 'obsidian'
 import type PMPlugin from '../../main'
-import type { ProjectScope } from '../../store'
+import type { ProjectContext } from '../../store'
 import { safeAsync } from '@system-commons/ui'
 
 export interface LinkState {
@@ -30,7 +30,7 @@ export function handleLinkDotClick(
   side: 'left' | 'right',
   link: LinkState,
   plugin: PMPlugin,
-  scope: ProjectScope,
+  scope: ProjectContext,
   onRefresh: () => Promise<void>
 ): void {
   if (!link.active) {
@@ -65,11 +65,10 @@ export function handleLinkDotClick(
 
   cancelLink(link)
 
-  // The two bars can belong to different projects, and the dependency belongs to the
-  // successor's.
+  // The successor is the one that carries the dependency.
   const successor = scope.taskById(successorId)
-  const project = scope.projectOf(successorId)
-  if (!successor || !project) {
+  const project = scope.project
+  if (!successor) {
     new Notice('That task is no longer in this view.')
     return
   }

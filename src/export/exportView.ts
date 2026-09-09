@@ -8,12 +8,11 @@ import { buildSnapshot } from './snapshot'
 
 /** Writes the view as one HTML file beside the project note and opens it on desktop. */
 export async function exportViewAsHtml(plugin: PMPlugin, view: ProjectView): Promise<string> {
-  const scope = view.projectScope
-  const primary = scope?.primary
-  if (!scope || !primary) throw new Error('nothing to export: the view holds no project')
-  const snapshot = await buildSnapshot(plugin, scope, view.exportState())
+  const project = view.project
+  if (!project) throw new Error('nothing to export: the view holds no project')
+  const snapshot = await buildSnapshot(plugin, project, view.exportState())
   const html = renderSnapshotHtml(snapshot)
-  const folder = folderOf(primary.filePath)
+  const folder = folderOf(project.filePath)
   const path = normalizePath(`${folder ? folder + '/' : ''}${sanitizeFileName(snapshot.title)} snapshot.html`)
   await plugin.app.vault.adapter.write(path, html)
   new Notice(`Saved ${path}`)

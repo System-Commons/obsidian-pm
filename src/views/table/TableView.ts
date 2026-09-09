@@ -2,7 +2,7 @@ import { Notice, type KeymapEventHandler, type Scope } from 'obsidian'
 import { confirmDialog } from '../../ui/ModalFactory'
 import type PMPlugin from '../../main'
 import type { FilterState, Project } from '@system-commons/core'
-import type { ProjectScope } from '../../store'
+import type { ProjectContext } from '../../store'
 import { safeAsync } from '@system-commons/ui'
 import type { SubView } from '../SubView'
 import { renderTable, refreshTableBody, handleTableKeyDown, ROW_HEIGHT_ESTIMATE } from './TableRenderer'
@@ -27,7 +27,7 @@ export class TableView implements SubView {
 
   constructor(
     private container: HTMLElement,
-    private scope: ProjectScope,
+    private scope: ProjectContext,
     private plugin: PMPlugin,
     private onRefresh: () => Promise<void>,
     filter: FilterState,
@@ -118,18 +118,13 @@ export class TableView implements SubView {
     const ids = [...this.state.selectedTaskIds]
     if (!ids.length) return
 
-    // A selection can span projects, and every mutator takes one. Each project's share
-    // of the selection goes in its own call, so each still saves once.
-    const groups = this.scope.groupByProject(ids)
     try {
       if (action.type === 'delete') {
         if (!(await confirmDialog(this.plugin.app, `Delete ${taskCount(ids.length)}? This cannot be undone.`))) {
           return
         }
       }
-      for (const { project, taskIds } of groups) {
-        await this.applyBulkAction(action, project, taskIds)
-      }
+      await this.applyBulkAction(action, this.scope.project, ids)
       switch (action.type) {
         case 'set-parent':
           new Notice(`Moved ${taskCount(ids.length)} under new parent`)

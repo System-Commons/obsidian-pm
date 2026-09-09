@@ -17,7 +17,6 @@ import {
   DueDateCell,
   ExpandCell,
   PriorityCell,
-  ProjectCell,
   ProgressCell,
   SelectCell,
   StatusCell,
@@ -32,10 +31,8 @@ import { linkedRefs } from '../linkedRefs'
 
 export function renderTaskRow(tbody: HTMLElement, flat: TableTreeRow, ctx: TableContext): void {
   const { task, depth } = flat
-  // One row belongs to one project, so ownership is resolved here and used throughout.
-  const project = ctx.scope.projectOf(task.id)
-  if (!project) return
-  const isDone = isTerminalStatus(task.status, ctx.scope.configOf(task.id).statuses)
+  const project = ctx.scope.project
+  const isDone = isTerminalStatus(task.status, ctx.statuses)
   const statusConfig = getStatusConfig(ctx.statuses, task.status)
 
   const { el: row } = new TaskRow(tbody, {
@@ -113,14 +110,6 @@ export function renderTaskRow(tbody: HTMLElement, flat: TableTreeRow, ctx: Table
     }
   })
 
-  if (ctx.scope.isMulti) {
-    new ProjectCell(row, {
-      title: project.title,
-      color: project.color,
-      onClick: safeAsync(() => ctx.plugin.router.openProjectLink(project.filePath))
-    })
-  }
-
   new StatusCell(row, {
     task,
     statuses: ctx.statuses,
@@ -162,7 +151,7 @@ export function renderTaskRow(tbody: HTMLElement, flat: TableTreeRow, ctx: Table
   })
   new TimeCell(row, { logged: totalLoggedHours(task), estimate: task.timeEstimate ?? 0 })
 
-  for (const cf of ctx.scope.customFields()) {
+  for (const cf of ctx.scope.config.customFields) {
     const value = customFieldValue(ctx.plugin.app, cf, task.customFields[cf.id], task.filePath ?? project.filePath)
     new CustomFieldCell(row, value)
   }

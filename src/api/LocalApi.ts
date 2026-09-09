@@ -134,18 +134,13 @@ export class LocalApi implements DomainApi {
   async moveTask(taskId: string, input: unknown): Promise<TaskResource> {
     const move = parseTaskMove(input)
     const located = await this.locate(taskId)
-    let { project, ref } = located
+    const { project, ref } = located
     const store = this.plugin.store
 
     if (move.projectId !== undefined && move.projectId !== ref.id) {
-      const targetRef = this.refById(move.projectId)
-      const target = await this.load(targetRef)
-      const parentId = move.parentId ?? null
-      if (parentId && !findTaskById(target, parentId)) notFound('parent task', parentId)
-      await store.moveTaskToProject(project, target, taskId, parentId)
-      project = target
-      ref = targetRef
-    } else if (move.parentId !== undefined && move.parentId !== findParentId(project, taskId)) {
+      throw new ApiRequestError('invalid', 'this vault holds one project; a task cannot move to another')
+    }
+    if (move.parentId !== undefined && move.parentId !== findParentId(project, taskId)) {
       if (move.parentId && !findTaskById(project, move.parentId)) notFound('parent task', move.parentId)
       if (move.parentId && this.inSubtree(located.task, move.parentId)) {
         throw new ApiRequestError('invalid', 'a task cannot be moved under itself')

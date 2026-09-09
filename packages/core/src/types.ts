@@ -225,16 +225,12 @@ export interface PMSettings {
   taskEditorSurface: 'modal' | 'tab'
   /** Key shortcut to create or save tasks and projects. */
   editorSaveModifier: 'Shift' | 'Mod'
-  /** Where a project link lands: its overview page or its tasks in the default view. */
+  /** Where the project opens: its overview page or its tasks in the default view. */
   projectSurface: 'overview' | 'tasks'
-  /** Keyed by scope key, e.g. `project:Projects/Roadmap.md`. */
-  projectFilters: Record<string, PerProjectFilter>
-  /** Saved views for a scope covering several projects, which has no file to keep them in. */
-  scopeViews: Record<string, SavedView[]>
-  /** Collapsed task ids per project path. Lives here so a toggle doesn't rewrite task files. */
-  collapsedTasks: Record<string, string[]>
-  /** Paths of projects whose sub-projects are collapsed in the project list. */
-  collapsedProjects: string[]
+  /** The filter and saved view the project view last showed. */
+  filter: PerProjectFilter
+  /** Collapsed task ids. Lives here so a toggle doesn't rewrite task files. */
+  collapsedTasks: string[]
   /** A localhost HTTP and MCP server for other tools on this machine. Desktop only. */
   localApiEnabled: boolean
   localApiPort: number
@@ -292,10 +288,8 @@ export const DEFAULT_SETTINGS: PMSettings = {
   taskEditorSurface: 'modal',
   editorSaveModifier: 'Shift',
   projectSurface: 'overview',
-  projectFilters: {},
-  scopeViews: {},
-  collapsedTasks: {},
-  collapsedProjects: [],
+  filter: { filter: makeDefaultFilter(), activeSavedViewId: null },
+  collapsedTasks: [],
   localApiEnabled: false,
   localApiPort: LOCAL_API_PORT_BASE,
   localApiToken: ''

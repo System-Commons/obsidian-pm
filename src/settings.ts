@@ -642,26 +642,17 @@ export class PMSettingTab extends PluginSettingTab {
     const configs = field === 'status' ? this.plugin.settings.statuses : this.plugin.settings.priorities
     if (configs.length === 0) return
     const fallback = configs[0]
-    // Only projects the index says still use the deleted value are worth loading.
-    const affected = this.plugin.index
-      .projectRefs()
-      .filter((ref) => this.plugin.index.taskRefs(ref.path).some((task) => task[field] === deletedId))
-      .map((ref) => ref.path)
-    const projects = await this.plugin.store.loadProjects(affected)
-    let remapped = 0
-    for (const project of projects) {
-      // A project defining this status or priority itself is unaffected by a global delete.
-      const own = field === 'status' ? project.config?.statuses : project.config?.priorities
-      if (own?.some((entry) => entry.id === deletedId)) continue
-      const ids = flattenTasks(project.tasks)
-        .filter(({ task }) => task[field] === deletedId)
-        .map(({ task }) => task.id)
-      if (ids.length) {
-        await this.plugin.store.updateTasks(project, ids, { [field]: fallback.id })
-        remapped += ids.length
-      }
-    }
+    // Only worth loading the project when the index says a task still uses the deleted value.
+    const ref = this.plugin.projectRef()
+    if (!ref || !this.plugin.index.taskRefs(ref.path).some((task) => task[field] === deletedId)) return
+    const project = await this.plugin.project()
+    if (!project) return
+    const ids = flattenTasks(project.tasks)
+      .filter(({ task }) => task[field] === deletedId)
+      .map(({ task }) => task.id)
+    const remapped = ids.length
     if (remapped > 0) {
+      await this.plugin.store.updateTasks(project, ids, { [field]: fallback.id })
       new Notice(`Remapped ${remapped} task${remapped === 1 ? '' : 's'} from '${deletedLabel}' to '${fallback.label}'.`)
     }
   }

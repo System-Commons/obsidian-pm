@@ -10,7 +10,7 @@ import {
   Temporal,
   today
 } from '@system-commons/core'
-import { personKeyer, type ProjectScope } from '../../store'
+import { personKeyer, type ProjectContext } from '../../store'
 import {
   renderAddButton,
   SegmentedControl,
@@ -23,7 +23,7 @@ import {
   ROW_HEIGHT,
   LABEL_WIDTH
 } from '@system-commons/ui'
-import { openAddTask } from '../addTask'
+import { openTaskModal } from '../../ui/ModalFactory'
 import type { SubView } from '../SubView'
 import { makeDragState } from './GanttDragHandler'
 import type { DragState } from './GanttDragHandler'
@@ -62,7 +62,7 @@ export class GanttView implements SubView {
 
   constructor(
     private container: HTMLElement,
-    private scope: ProjectScope,
+    private scope: ProjectContext,
     private plugin: PMPlugin,
     private onRefresh: () => Promise<void>,
     private filter: FilterState,
@@ -247,8 +247,8 @@ export class GanttView implements SubView {
 
     const addRow = leftBody.createDiv('pm-gantt-label-row pm-gantt-add-row')
     addRow.style.height = `${ROW_HEIGHT}px`
-    renderAddButton(addRow, 'Add task', (e) => {
-      openAddTask(this.plugin, this.scope, { event: e, onSave: () => this.onRefresh() })
+    renderAddButton(addRow, 'Add task', () => {
+      openTaskModal(this.plugin, this.scope.project, { onSave: () => this.onRefresh() })
     })
 
     // The right panel's horizontal scrollbar eats into its viewport height, letting it
@@ -338,7 +338,7 @@ export class GanttView implements SubView {
     for (const { task } of flattenTasks(this.scope.tasks())) {
       if (task.subtasks.length > 0) task.collapsed = collapsed
     }
-    for (const project of this.scope.projects) void this.plugin.persistCollapsedState(project)
+    void this.plugin.persistCollapsedState(this.scope.project)
     this.render()
   }
 }

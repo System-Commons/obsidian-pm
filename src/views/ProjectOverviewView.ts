@@ -16,11 +16,10 @@ import {
   isTerminalStatus,
   truncateTitle
 } from '@system-commons/core'
-import { personKeyer, type ProjectRef } from '../store'
+import { personKeyer } from '../store'
 import {
   safeAsync,
   Avatar,
-  EmptyState,
   ProgressBar,
   renderPropRow,
   renderDueChip,
@@ -33,11 +32,12 @@ import {
   renderGlyph
 } from '@system-commons/ui'
 import { linkedRefs } from './linkedRefs'
+import { renderNoProject } from './noProject'
 
 export const PM_PROJECT_OVERVIEW_VIEW_TYPE = 'pm-project-overview'
 
+/** Carries nothing: the view always shows the vault's project. */
 export interface ProjectOverviewState {
-  filePath?: string
   [key: string]: unknown
 }
 
@@ -54,12 +54,9 @@ interface Rollup {
 
 export class ProjectOverviewView extends ItemView {
   plugin: PMPlugin
-  private state: ProjectOverviewState = {}
   private project: Project | null = null
   private description = new Component()
   private container!: HTMLElement
-  /** Parent and sub-projects as last drawn, so an unrelated index change doesn't repaint. */
-  private treeSignature = ''
 
   constructor(leaf: WorkspaceLeaf, plugin: PMPlugin) {
     super(leaf)
@@ -78,14 +75,12 @@ export class ProjectOverviewView extends ItemView {
   }
 
   async setState(state: ProjectOverviewState, result: unknown): Promise<void> {
-    const changed = state.filePath !== this.state.filePath
-    this.state = state
-    if (changed || !this.project) await this.loadProject()
+    if (!this.project) await this.loadProject()
     await super.setState(state, result as import('obsidian').ViewStateResult)
   }
 
   getState(): ProjectOverviewState {
-    return this.state
+    return {}
   }
 
   onOpen(): Promise<void> {
@@ -100,7 +95,7 @@ export class ProjectOverviewView extends ItemView {
     )
     this.register(
       this.plugin.index.onChange(() => {
-        if (this.project && this.treeSignature !== this.signTree(this.project)) this.render()
+        if ((this.plugin.projectRef()?.path ?? null) !== (this.project?.filePath ?? null)) void this.loadProject()
       })
     )
     return Promise.resolve()
@@ -113,29 +108,24 @@ export class ProjectOverviewView extends ItemView {
   }
 
   private async loadProject(): Promise<void> {
-    const path = this.state.filePath
-    this.project = path ? await this.plugin.store.loadProjectByPath(path) : null
+    this.project = await this.plugin.project()
     ;(this.leaf as WorkspaceLeaf & { updateHeader?: () => void }).updateHeader?.()
     if (!this.project) {
-      this.renderMissing()
+      this.container.empty()
+      renderNoProject(
+        this.container,
+        this.plugin,
+        safeAsync(() => this.loadProject())
+      )
       return
     }
     this.render()
-  }
-
-  private renderMissing(): void {
-    this.container.empty()
-    new EmptyState(this.container)
-      .setIcon('📋')
-      .setTitle('No project here')
-      .setBody('It may have been deleted or renamed.')
   }
 
   render(): void {
     const project = this.project
     if (!project) return
     this.container.empty()
-    this.treeSignature = this.signTree(project)
 
     const config = this.plugin.store.configFor(project)
     const tasks = flattenTasks(project.tasks)
@@ -143,7 +133,6 @@ export class ProjectOverviewView extends ItemView {
       .filter((task) => !task.archived)
     const rollup = summarize(tasks, config)
 
-    this.renderBreadcrumbs(project)
     this.renderHeader(project, rollup)
     const grid = this.container.createDiv('pm-overview-grid')
     const main = grid.createDiv('pm-overview-main')
@@ -152,16 +141,7 @@ export class ProjectOverviewView extends ItemView {
     this.renderMetrics(main, project, rollup)
     this.renderDescription(main, project)
     this.renderMilestones(main, tasks, config)
-    this.renderSubProjects(main, project)
     this.renderProperties(side, project, tasks, rollup)
-  }
-
-  private signTree(project: Project): string {
-    const parent = this.plugin.index.parentOf(project.filePath)?.path ?? ''
-    return `${parent}|${this.plugin.index
-      .childRefs(project.filePath)
-      .map((child) => child.path)
-      .join(',')}`
   }
 
   private renderHeader(project: Project, rollup: Rollup): void {
@@ -172,19 +152,17 @@ export class ProjectOverviewView extends ItemView {
 
     const identity = header.createDiv('pm-overview-identity')
     identity.createDiv({ cls: 'pm-overview-title', text: project.title })
-    const children = this.plugin.index.childRefs(project.filePath).length
     const bits = [`${rollup.done} of ${rollup.total} tasks done`]
-    if (children) bits.push(children === 1 ? '1 sub-project' : `${children} sub-projects`)
     if (project.teamMembers.length) bits.push(`${project.teamMembers.length} members`)
     identity.createDiv({ cls: 'pm-overview-subline', text: bits.join(' · ') })
 
     new ButtonComponent(header)
       .setButtonText('Edit project')
-      .onClick(safeAsync(() => this.plugin.router.openProjectEdit(project.filePath, this.leaf)))
+      .onClick(safeAsync(() => this.plugin.router.openProjectEdit(this.leaf)))
     new ButtonComponent(header)
       .setButtonText('Open tasks')
       .setCta()
-      .onClick(safeAsync(() => this.plugin.router.openScope({ kind: 'project', path: project.filePath }, this.leaf)))
+      .onClick(safeAsync(() => this.plugin.router.openProject(this.leaf)))
   }
 
   private section(parent: HTMLElement, title: string, note = ''): HTMLElement {
@@ -193,24 +171,6 @@ export class ProjectOverviewView extends ItemView {
     head.createSpan({ cls: 'pm-section-label', text: title })
     if (note) head.createSpan({ cls: 'pm-overview-note', text: note })
     return section
-  }
-
-  private renderBreadcrumbs(project: Project): void {
-    const chain: ProjectRef[] = []
-    for (let ref = this.plugin.index.parentOf(project.filePath); ref; ref = this.plugin.index.parentOf(ref.path)) {
-      chain.unshift(ref)
-    }
-    if (chain.length === 0) return
-    const bar = this.container.createDiv('pm-overview-crumbs')
-    for (const crumb of chain) {
-      const link = bar.createSpan({ cls: 'pm-overview-crumb', text: crumb.title })
-      link.addEventListener(
-        'click',
-        safeAsync(() => this.plugin.router.openProjectOverview(crumb.path))
-      )
-      bar.createSpan({ cls: 'pm-overview-crumb-sep', text: '/' })
-    }
-    bar.createSpan({ text: project.title })
   }
 
   private renderMetrics(parent: HTMLElement, project: Project, rollup: Rollup): void {
@@ -301,28 +261,6 @@ export class ProjectOverviewView extends ItemView {
     renderMilestoneTimeline(section, points, posOf(now))
   }
 
-  private renderSubProjects(parent: HTMLElement, project: Project): void {
-    const children = this.plugin.index.childRefs(project.filePath)
-    if (children.length === 0) return
-    const section = this.section(parent, 'Sub-projects')
-    for (const child of children) {
-      const { total, done } = this.plugin.index.rollupCounts(child)
-      const row = section.createDiv('pm-overview-child')
-      renderGlyph(row.createSpan({ cls: 'pm-overview-child-icon' }), { icon: child.icon, color: child.color })
-      row.createSpan({ cls: 'pm-overview-child-title', text: child.title })
-      new ProgressBar(row)
-        .setSize('sm')
-        .setValue(total ? (done / total) * 100 : 0)
-        .setColor(child.color)
-        .setShowLabel(true)
-      row.createSpan({ cls: 'pm-overview-child-count', text: `${done}/${total}` })
-      row.addEventListener(
-        'click',
-        safeAsync(() => this.plugin.router.openProjectLink(child.path))
-      )
-    }
-  }
-
   private renderProperties(parent: HTMLElement, project: Project, tasks: Task[], rollup: Rollup): void {
     const section = this.section(parent, 'Properties')
     const list = section.createDiv('pm-overview-props')
@@ -363,16 +301,6 @@ export class ProjectOverviewView extends ItemView {
 
     prop('Time', !rollup.logged && !rollup.estimate, 'No estimate', (value) => {
       renderTimeChip(value, rollup.logged, rollup.estimate)
-    })
-
-    const parentRef = this.plugin.index.parentOf(project.filePath)
-    prop('Parent', !parentRef, 'No parent', (value) => {
-      if (!parentRef) return
-      const link = value.createSpan({ cls: 'pm-overview-crumb', text: parentRef.title })
-      link.addEventListener(
-        'click',
-        safeAsync(() => this.plugin.router.openProjectOverview(parentRef.path))
-      )
     })
 
     const assignees = dedupePeople(tasks.flatMap((task) => task.assignees).filter(Boolean), personKeyer(this.app))

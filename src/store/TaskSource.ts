@@ -24,13 +24,11 @@ export interface TaskSource {
   ensureFolder(folderPath: string): Promise<void>
 
   /**
-   * The project's overrides applied over the source's defaults. Views and modals must
-   * read palettes through this, never from the global settings.
+   * The settings as the project sees them, with the statuses and priorities its tasks
+   * still use kept in. Views and modals read palettes through this, never from the
+   * global settings directly.
    */
   configFor(project: Project): ResolvedProjectConfig
-
-  /** Loads the projects at the given paths, skipping any that no longer resolve to a file. */
-  loadProjects(paths: string[]): Promise<Project[]>
 
   /** Every caller gets the same instance for a path, for as long as the project exists. */
   loadProject(file: TFile): Promise<Project | null>
@@ -40,27 +38,12 @@ export interface TaskSource {
   loadProjectBody(project: Project): Promise<void>
 
   createProject(title: string, folder: string, patch?: ProjectPatch): Promise<Project>
-  /**
-   * Moves a project that still sits beside its `<name>_tasks` folder into a folder of its
-   * own. Returns the note's new path, or null when the project already owns a folder.
-   */
-  moveProjectIntoOwnFolder(projectPath: string): Promise<string | null>
-  /** Writes a sub-project's `parent` link again, for when the parent note moved. */
-  repointProjectParent(childPath: string, parentPath: string): Promise<void>
   saveProject(project: Project): Promise<void>
   updateProject(project: Project, patch: ProjectPatch): Promise<void>
   deleteProject(project: Project): Promise<void>
 
   insertTask(project: Project, task: Task, parentId?: string | null): Promise<void>
   duplicateTask(project: Project, sourceId: string, includeSubtasks: boolean): Promise<Task | null>
-  /**
-   * Gives the listed tasks fresh ids, remapping every reference the project holds to
-   * them, and optionally the project's own id. Repairs a project whose folder was
-   * copied on disk, which duplicates every id in it.
-   */
-  reassignIds(project: Project, taskIds: string[], newProjectId: boolean): Promise<void>
-  /** A full copy of a project under a new title, every task cloned with a fresh id. */
-  duplicateProject(source: Project, title: string): Promise<Project>
   importNoteAsTask(project: Project, file: TFile, opts: ImportNoteOptions): Promise<'imported' | 'skipped'>
   importTaskForest(
     project: Project,
@@ -75,8 +58,6 @@ export interface TaskSource {
     patch: Partial<Task> | ((task: Task) => Partial<Task> | null)
   ): Promise<void>
   moveTask(project: Project, taskId: string, newParentId: string | null): Promise<void>
-  /** Moves a task and its subtasks to another project, keeping their ids. */
-  moveTaskToProject(from: Project, to: Project, taskId: string, newParentId?: string | null): Promise<void>
   moveTasks(project: Project, taskIds: string[], newParentId: string | null): Promise<void>
   reorderTask(project: Project, taskId: string, targetId: string, position: 'before' | 'after'): Promise<void>
   deleteTask(project: Project, taskId: string): Promise<void>
@@ -85,7 +66,7 @@ export interface TaskSource {
   archiveTasks(project: Project, taskIds: string[]): Promise<void>
   unarchiveTask(project: Project, taskId: string): Promise<void>
 
-  /** Runs dependency-based auto-scheduling; a no-op when the project's config disables it. */
+  /** Runs dependency-based auto-scheduling; a no-op when the setting is off. */
   scheduleAfterChange(project: Project, changedTaskId?: string): Promise<number>
   saveTaskAttachment(project: Project, task: Task, fileName: string, data: ArrayBuffer): Promise<TFile>
   findTaskFileConflict(project: Project, task: Task): TaskFileNameConflictError | null

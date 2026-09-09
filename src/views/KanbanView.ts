@@ -12,8 +12,8 @@ import {
   dueUrgency,
   getPriorityConfig
 } from '@system-commons/core'
-import { personKeyer, type ProjectScope } from '../store'
-import { safeAsync, KanbanColumn, type KanbanCardData, renderProjectChip } from '@system-commons/ui'
+import { personKeyer, type ProjectContext } from '../store'
+import { KanbanColumn, type KanbanCardData } from '@system-commons/ui'
 import { openTaskModal } from '../ui/ModalFactory'
 import { buildTaskContextMenu } from '../ui/TaskContextMenu'
 import { linkedRefs } from './linkedRefs'
@@ -27,7 +27,7 @@ export class KanbanView implements SubView {
 
   constructor(
     private container: HTMLElement,
-    private scope: ProjectScope,
+    private scope: ProjectContext,
     private plugin: PMPlugin,
     private onRefresh: () => Promise<void>,
     private filter: FilterState
@@ -113,22 +113,12 @@ export class KanbanView implements SubView {
       if (parent) parentTitle = parent.title
     }
 
-    const owner = this.scope.isMulti ? this.scope.projectOf(task.id) : null
-
     return {
       task,
       people: linkedRefs(this.plugin.app, task.assignees, task.filePath ?? ''),
       priorityColor,
       descriptionPreview,
       parentTitle,
-      renderSource: owner
-        ? (el) =>
-            renderProjectChip(el, {
-              title: owner.title,
-              color: owner.color,
-              onClick: safeAsync(() => this.plugin.router.openProjectLink(owner.filePath))
-            })
-        : undefined,
       loggedHours: totalLoggedHours(task),
       overdue: dueUrgency(task, this.config.statuses) === 'overdue',
       showTagColors: this.plugin.settings.showTagColors
@@ -144,9 +134,7 @@ export class KanbanView implements SubView {
   }
 
   private openTask(task: Task): void {
-    const owner = this.scope.projectOf(task.id)
-    if (!owner) return
-    openTaskModal(this.plugin, owner, {
+    openTaskModal(this.plugin, this.scope.project, {
       task,
       onSave: async () => {
         await this.onRefresh()
@@ -155,19 +143,15 @@ export class KanbanView implements SubView {
   }
 
   private openContextMenu(task: Task, e: MouseEvent): void {
-    const owner = this.scope.projectOf(task.id)
-    if (!owner) return
     const menu = new Menu()
-    buildTaskContextMenu(menu, task, { plugin: this.plugin, project: owner, onRefresh: this.onRefresh })
+    buildTaskContextMenu(menu, task, { plugin: this.plugin, project: this.scope.project, onRefresh: this.onRefresh })
     menu.showAtMouseEvent(e)
   }
 
   private async handleDrop(taskId: string, newStatus: TaskStatus): Promise<void> {
     if (!this.dragTask || this.dragTask.id !== taskId) return
     if (newStatus === this.dragTask.status) return
-    const owner = this.scope.projectOf(taskId)
-    if (!owner) return
-    await this.plugin.store.updateTask(owner, this.dragTask.id, { status: newStatus })
+    await this.plugin.store.updateTask(this.scope.project, this.dragTask.id, { status: newStatus })
     await this.onRefresh()
   }
 }

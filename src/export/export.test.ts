@@ -1,10 +1,9 @@
 import type { App } from 'obsidian'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { DEFAULT_SETTINGS, makeDefaultFilter, makeTask, type PMSettings } from '@system-commons/core'
+import { DEFAULT_SETTINGS, makeDefaultFilter, makeTask, type PMSettings, type Project } from '@system-commons/core'
 import { isSnapshot, type Snapshot } from '@system-commons/api'
 import { makeFakeApp } from '../../test/fakeVault'
 import type PMPlugin from '../main'
-import { ProjectScope } from '../store/ProjectScope'
 import { ProjectStore } from '../store/ProjectStore'
 import { VaultIndex } from '../store/VaultIndex'
 import { renderSnapshotHtml } from './html'
@@ -24,23 +23,22 @@ function fakePlugin(): { plugin: PMPlugin; store: ProjectStore; index: VaultInde
 
 describe('buildSnapshot', () => {
   let plugin: PMPlugin
-  let scope: ProjectScope
+  let project: Project
 
   beforeEach(async () => {
     const fake = fakePlugin()
     plugin = fake.plugin
-    const project = await fake.store.createProject('Roadmap <b>', 'Projects')
+    project = await fake.store.createProject('Roadmap <b>', 'Projects')
     await fake.store.insertTask(
       project,
       makeTask({ id: 'a', title: 'Alpha', description: 'Body of alpha', due: '2030-02-01' })
     )
     await fake.store.insertTask(project, makeTask({ id: 'a1', title: 'Alpha child', status: 'done' }), 'a')
     fake.index.build()
-    scope = new ProjectScope({ kind: 'project', path: project.filePath }, [project], fake.store)
   })
 
-  it('carries the projects, the tasks with bodies, the view state and the icon table', async () => {
-    const snapshot = await buildSnapshot(plugin, scope, {
+  it('carries the project, the tasks with bodies, the view state and the icon table', async () => {
+    const snapshot = await buildSnapshot(plugin, project, {
       mode: 'gantt',
       filter: { ...makeDefaultFilter(), statuses: ['todo'] },
       sortKey: 'due',
@@ -52,15 +50,15 @@ describe('buildSnapshot', () => {
     expect(snapshot.view).toMatchObject({ mode: 'gantt', sortKey: 'due', sortDir: 'desc', ganttGranularity: 'week' })
     expect(snapshot.view.filter.statuses).toEqual(['todo'])
     expect(snapshot.projects.length).toBe(1)
-    const [project] = snapshot.projects
-    expect(project.taskCount).toBe(2)
-    expect(project.doneCount).toBe(1)
-    expect(project.statuses.map((s) => s.id)).toEqual(SETTINGS.statuses.map((s) => s.id))
-    expect(project.tasks.map((t) => [t.id, t.parentId])).toEqual([
+    const [exported] = snapshot.projects
+    expect(exported.taskCount).toBe(2)
+    expect(exported.doneCount).toBe(1)
+    expect(exported.statuses.map((s) => s.id)).toEqual(SETTINGS.statuses.map((s) => s.id))
+    expect(exported.tasks.map((t) => [t.id, t.parentId])).toEqual([
       ['a', null],
       ['a1', 'a']
     ])
-    expect(project.tasks[0].description).toBe('Body of alpha')
+    expect(exported.tasks[0].description).toBe('Body of alpha')
     expect(typeof snapshot.icons).toBe('object')
   })
 })

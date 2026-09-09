@@ -84,8 +84,8 @@ function updateBarContent(bar: HTMLElement, ctx: TableContext, onAction: (a: Bul
 
   new ButtonComponent(left).setButtonText('Set assignee').onClick((e) => {
     const menu = new Menu()
-    const source = peopleSource(ctx.plugin, ctx.scope.primary?.filePath ?? '', () => [
-      ...ctx.scope.teamMembers(),
+    const source = peopleSource(ctx.plugin, ctx.scope.project.filePath, () => [
+      ...ctx.scope.project.teamMembers,
       ...collectAllAssignees(ctx.scope.tasks())
     ])
     for (const member of source.known()) {
@@ -162,32 +162,26 @@ function updateBarContent(bar: HTMLElement, ctx: TableContext, onAction: (a: Bul
     menu.showAtMouseEvent(e)
   })
 
-  // A parent and its subtask live in the same project, so this is offered only when the
-  // whole selection does too.
-  const groups = ctx.scope.groupByProject([...ctx.state.selectedTaskIds])
-  if (groups.length === 1) {
-    const owner = groups[0].project
-    new ButtonComponent(left).setButtonText('Set parent').onClick(() => {
-      const selectedIdSet = new Set(ctx.state.selectedTaskIds)
-      // A selected task's own descendants can't become its parent.
-      const excludedIds = new Set<string>(selectedIdSet)
-      for (const id of selectedIdSet) {
-        const task = ctx.scope.taskById(id)
-        if (task) {
-          for (const ft of flattenTasks(task.subtasks)) {
-            excludedIds.add(ft.task.id)
-          }
+  new ButtonComponent(left).setButtonText('Set parent').onClick(() => {
+    const selectedIdSet = new Set(ctx.state.selectedTaskIds)
+    // A selected task's own descendants can't become its parent.
+    const excludedIds = new Set<string>(selectedIdSet)
+    for (const id of selectedIdSet) {
+      const task = ctx.scope.taskById(id)
+      if (task) {
+        for (const ft of flattenTasks(task.subtasks)) {
+          excludedIds.add(ft.task.id)
         }
       }
-      const candidates = flattenTasks(owner.tasks)
-        .filter((ft) => !excludedIds.has(ft.task.id))
-        .map((ft) => ft.task)
-      const modal = new TaskPickerModal(ctx.plugin.app, candidates, (chosen) => {
-        onAction({ type: 'set-parent', parentId: chosen.id })
-      })
-      modal.open()
+    }
+    const candidates = flattenTasks(ctx.scope.tasks())
+      .filter((ft) => !excludedIds.has(ft.task.id))
+      .map((ft) => ft.task)
+    const modal = new TaskPickerModal(ctx.plugin.app, candidates, (chosen) => {
+      onAction({ type: 'set-parent', parentId: chosen.id })
     })
-  }
+    modal.open()
+  })
 
   new ButtonComponent(left).setButtonText('Remove parent').onClick(() => onAction({ type: 'remove-parent' }))
 

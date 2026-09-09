@@ -2,8 +2,7 @@ export { archiveTask, collectArchivable, unarchiveTask, withoutBlockedDependents
 export type { ArchiveCandidate } from './ArchiveOps'
 export { ProjectStore, TaskFileNameConflictError } from './ProjectStore'
 export type { ImportNoteOptions, TaskSource } from './TaskSource'
-export { ProjectScope, resolveScopePaths, scopeKey } from './ProjectScope'
-export type { ScopeSpec } from './ProjectScope'
+export { ProjectContext } from './ProjectContext'
 export { VaultIndex } from './VaultIndex'
 export type { ProjectRef, TaskRef } from './VaultIndex'
 export {

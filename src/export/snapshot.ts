@@ -11,7 +11,6 @@ import {
 } from '@system-commons/api'
 import type { SortDir, SortKey } from '@system-commons/ui'
 import type PMPlugin from '../main'
-import type { ProjectScope } from '../store'
 
 export interface ExportViewState {
   mode: ViewMode
@@ -68,35 +67,30 @@ function iconMarkup(names: Iterable<string>): Record<string, string> {
   return icons
 }
 
-export async function buildSnapshot(plugin: PMPlugin, scope: ProjectScope, view: ExportViewState): Promise<Snapshot> {
-  const primary = scope.primary
-  if (!primary) throw new Error('nothing to export: the scope holds no project')
-
-  const projects: SnapshotProject[] = []
+export async function buildSnapshot(plugin: PMPlugin, project: Project, view: ExportViewState): Promise<Snapshot> {
   const iconNames = new Set<string>(CHROME_ICONS)
   for (const set of Object.values(PRIORITY_ICON_SETS)) for (const name of set) iconNames.add(name)
 
-  for (const project of scope.projects) {
-    await Promise.all(flattenTasks(project.tasks).map(({ task }) => plugin.store.loadTaskBody(task)))
-    const config = plugin.store.configFor(project)
-    for (const status of config.statuses) iconNames.add(status.icon)
-    for (const priority of config.priorities) iconNames.add(priority.icon)
-    for (const field of config.customFields) if (field.icon) iconNames.add(field.icon)
-    iconNames.add(project.icon)
-    projects.push({
+  await Promise.all(flattenTasks(project.tasks).map(({ task }) => plugin.store.loadTaskBody(task)))
+  const config = plugin.store.configFor(project)
+  for (const status of config.statuses) iconNames.add(status.icon)
+  for (const priority of config.priorities) iconNames.add(priority.icon)
+  for (const field of config.customFields) if (field.icon) iconNames.add(field.icon)
+  iconNames.add(project.icon)
+  const projects: SnapshotProject[] = [
+    {
       ...toProjectResource(project, config, summarize(plugin, project)),
       tasks: taskResources(project, project.id, true)
-    })
-  }
+    }
+  ]
 
-  const config = scope.config
   return {
     format: SNAPSHOT_FORMAT,
     version: SNAPSHOT_VERSION,
     generator: { name: 'project-manager', version: plugin.manifest.version },
     exportedAt: new Date().toISOString(),
-    title: scope.label(),
-    primaryProjectId: primary.id,
+    title: project.title,
+    primaryProjectId: project.id,
     view: {
       mode: view.mode,
       filter: { ...view.filter },

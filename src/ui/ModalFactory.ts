@@ -1,11 +1,9 @@
 import { type App, ButtonComponent, Modal } from 'obsidian'
 import type PMPlugin from '../main'
 import { type Project, type Task, flattenTasks } from '@system-commons/core'
-import type { ProjectRef } from '../store'
 import { TaskModal } from '../modals/TaskModal'
-import { PersonLookupModal, ProjectPickerModal, TaskPickerModal } from '../modals/PickerModals'
+import { PersonLookupModal, TaskPickerModal } from '../modals/PickerModals'
 import { ImportModal } from '../modals/ImportModal'
-import { ProjectCreateModal } from '../modals/ProjectCreateModal'
 
 /** Resolves true if confirmed, false if cancelled. */
 export function confirmDialog(app: App, message: string, confirmLabel = 'Delete'): Promise<boolean> {
@@ -223,7 +221,7 @@ export function openTaskModal(plugin: PMPlugin, project: Project, opts: OpenTask
     void plugin.router.openTask(
       opts.task?.filePath
         ? { filePath: opts.task.filePath }
-        : { projectPath: project.filePath, parentId: opts.parentId ?? null, defaults: opts.defaults }
+        : { parentId: opts.parentId ?? null, defaults: opts.defaults }
     )
     return
   }
@@ -252,34 +250,21 @@ export function openTaskModal(plugin: PMPlugin, project: Project, opts: OpenTask
 }
 
 /**
- * Opens the editor for a task addressed by its note, loading the project it belongs to.
- * What a link to a task leads to: the task, not the markdown behind it.
+ * Opens the editor for a task addressed by its note. What a link to a task leads to: the
+ * task, not the markdown behind it.
  */
 export async function openTaskByPath(plugin: PMPlugin, filePath: string, onSave?: () => void): Promise<void> {
   if (plugin.settings.taskEditorSurface === 'tab') {
     await plugin.router.openTask({ filePath })
     return
   }
-  const projectPath = plugin.index.projectPathForTask(filePath)
-  const project = projectPath ? await plugin.store.loadProjectByPath(projectPath) : null
+  const project = await plugin.project()
   const task = project ? (flattenTasks(project.tasks).find((f) => f.task.filePath === filePath)?.task ?? null) : null
   if (!project || !task) {
     await plugin.openAsMarkdown(filePath)
     return
   }
   openTaskModal(plugin, project, { task, onSave: () => onSave?.() })
-}
-
-export function openProjectCreate(plugin: PMPlugin): void {
-  new ProjectCreateModal(plugin.app, plugin).open()
-}
-
-export function openProjectPicker(
-  plugin: PMPlugin,
-  projects: ProjectRef[],
-  onChoose: (project: ProjectRef) => void
-): void {
-  new ProjectPickerModal(plugin.app, projects, onChoose).open()
 }
 
 export function openTaskPicker(plugin: PMPlugin, tasks: Task[], onChoose: (task: Task) => void): void {

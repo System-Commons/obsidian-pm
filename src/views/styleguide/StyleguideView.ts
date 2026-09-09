@@ -34,7 +34,6 @@ import {
   TimeCell,
   TitleCell,
   KanbanCard,
-  ProjectRow,
   TaskRow,
   renderAddButton,
   CUSTOM_FIELD_TYPE_LABELS,
@@ -129,7 +128,6 @@ export class StyleguideView extends ItemView {
     this.renderCustomFieldEditor()
     this.group('Composites')
     this.renderDerivedChips()
-    this.renderProjectRows()
     this.renderCards()
     this.renderMetricStrip()
     this.renderMilestoneTimeline()
@@ -464,80 +462,6 @@ export class StyleguideView extends ItemView {
     const projectRow = this.row(sec, 'renderProjectChip: plain / clickable')
     renderProjectChip(projectRow, { title: 'Platform', color: '#7a9ec4' })
     renderProjectChip(projectRow, { title: 'Website relaunch', color: '#8b72be', onClick: noop })
-  }
-
-  private renderProjectRows(): void {
-    const sec = this.section('ProjectRow', 'project-row')
-    sec.createDiv({
-      cls: 'pm-sg-caption',
-      text: 'The project list: a parent with its rolled-up counts, a child on a tree connector, and a collapsed one.'
-    })
-    const table = sec.createEl('table', { cls: 'pm-table pm-project-table' })
-    const head = table.createEl('thead').createEl('tr')
-    for (const column of ['', 'Project', 'Progress', 'Tasks', 'Members', 'Due', '']) {
-      head.createEl('th', { text: column })
-    }
-    const tbody = table.createEl('tbody')
-    new ProjectRow(tbody, {
-      title: 'Platform',
-      icon: '🚀',
-      color: '#7a9ec4',
-      depth: 0,
-      treeGuides: [],
-      isLastChild: false,
-      childCount: 2,
-      collapsed: false,
-      tasksDone: 12,
-      tasksTotal: 40,
-      overdue: 0,
-      members: SAMPLE_PEOPLE,
-      dueLabel: 'Oct 30',
-      dueUrgency: 'normal',
-      onToggleCollapsed: noop,
-      onClick: noop,
-      onContextMenu: noop,
-      onActions: noop
-    })
-    new ProjectRow(tbody, {
-      title: 'Website relaunch',
-      icon: '📋',
-      color: '#8b72be',
-      depth: 1,
-      treeGuides: [true],
-      isLastChild: true,
-      childCount: 0,
-      collapsed: false,
-      tasksDone: 4,
-      tasksTotal: 10,
-      overdue: 3,
-      members: [SAMPLE_PEOPLE[0]],
-      dueLabel: 'Jun 20',
-      dueUrgency: 'overdue',
-      onToggleCollapsed: noop,
-      onClick: noop,
-      onContextMenu: noop,
-      onActions: noop
-    })
-    new ProjectRow(tbody, {
-      title: 'Internal tools',
-      icon: '🛠',
-      color: '#767491',
-      depth: 0,
-      treeGuides: [],
-      isLastChild: true,
-      childCount: 1,
-      collapsed: true,
-      tasksDone: 31,
-      tasksTotal: 38,
-      overdue: 0,
-      members: [],
-      dueLabel: '',
-      dueUrgency: 'normal',
-      onToggleCollapsed: noop,
-      onClick: noop,
-      onContextMenu: noop,
-      onActions: noop
-    })
   }
 
   private renderCards(): void {

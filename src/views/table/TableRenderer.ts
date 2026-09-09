@@ -11,10 +11,9 @@ import {
   applyTaskFilterFlat,
   isFilterActive
 } from '@system-commons/core'
-import { personKeyer, type ProjectScope } from '../../store'
+import { personKeyer, type ProjectContext } from '../../store'
 import { renderAddButton, childTreeGuides, compareTask, type SortDir, type SortKey } from '@system-commons/ui'
 import { openTaskModal } from '../../ui/ModalFactory'
-import { openAddTask } from '../addTask'
 import { renderTaskRow, updateSelectedRow, updateSelectAllCheckbox } from './TableRow'
 
 export type { SortKey, SortDir }
@@ -49,7 +48,7 @@ export interface TableState {
 
 export interface TableContext {
   container: HTMLElement
-  scope: ProjectScope
+  scope: ProjectContext
   plugin: PMPlugin
   /** Resolved once per render pass. */
   statuses: StatusConfig[]
@@ -100,7 +99,6 @@ export function renderTable(ctx: TableContext): void {
   const cols: { key: SortKey | null; label: string; width?: string }[] = [
     { key: null, label: '', width: '32px' },
     { key: 'title', label: 'Task', width: 'auto' },
-    ...(ctx.scope.isMulti ? [{ key: null, label: 'Project', width: '130px' } as const] : []),
     { key: 'status', label: 'Status', width: '130px' },
     { key: 'priority', label: 'Priority', width: '110px' },
     { key: 'assignees', label: 'Assignees', width: '140px' },
@@ -146,7 +144,7 @@ export function renderTable(ctx: TableContext): void {
   }
   paintSortIndicators()
 
-  for (const cf of ctx.scope.customFields()) {
+  for (const cf of ctx.scope.config.customFields) {
     const th = hrow.createEl('th', { text: cf.name })
     th.setCssStyles({ width: '120px' })
   }
@@ -271,7 +269,7 @@ function renderWindowRows(ctx: TableContext): void {
   if (!tbody) return
 
   const rows = state.visibleRows
-  const colCount = 10 + ctx.scope.customFields().length + (ctx.scope.isMulti ? 1 : 0)
+  const colCount = 10 + ctx.scope.config.customFields.length
   const { start, end } = computeWindow(state)
   state.windowStart = start
   state.windowEnd = end
@@ -285,8 +283,8 @@ function renderWindowRows(ctx: TableContext): void {
 
   const addRow = tbody.createEl('tr', { cls: 'pm-table-add-row' })
   const addCell = addRow.createEl('td', { attr: { colspan: String(colCount) } })
-  renderAddButton(addCell, 'Add task', (e) => {
-    openAddTask(ctx.plugin, ctx.scope, { event: e, onSave: () => ctx.onRefresh() })
+  renderAddButton(addCell, 'Add task', () => {
+    openTaskModal(ctx.plugin, ctx.scope.project, { onSave: () => ctx.onRefresh() })
   })
 
   calibrateRowHeight(ctx)
@@ -383,10 +381,9 @@ export function handleTableKeyDown(e: KeyboardEvent, ctx: TableContext): void {
     case 'e': {
       if (!ctx.state.selectedTaskId) return
       e.preventDefault()
-      const owner = ctx.scope.projectOf(ctx.state.selectedTaskId)
-      const task = owner ? findTaskById(owner, ctx.state.selectedTaskId) : null
-      if (owner && task) {
-        openTaskModal(ctx.plugin, owner, {
+      const task = findTaskById(ctx.scope.project, ctx.state.selectedTaskId)
+      if (task) {
+        openTaskModal(ctx.plugin, ctx.scope.project, {
           task,
           onSave: async () => {
             await ctx.onRefresh()
@@ -418,8 +415,6 @@ export function getVisibleTaskIds(state: TableState): string[] {
 }
 
 async function deleteTask(id: string, ctx: TableContext): Promise<void> {
-  const owner = ctx.scope.projectOf(id)
-  if (!owner) return
-  await ctx.plugin.store.deleteTask(owner, id)
+  await ctx.plugin.store.deleteTask(ctx.scope.project, id)
   await ctx.onRefresh()
 }

@@ -24,8 +24,7 @@ import { handleLinkDotClick } from './GanttLinkHandler'
 import type { RendererContext } from './GanttRenderer'
 
 export function renderTaskBar(g: SVGGElement, task: Task, row: number, _depth: number, ctx: RendererContext): void {
-  const project = ctx.scope.projectOf(task.id)
-  if (!project) return
+  const project = ctx.scope.project
   if (!task.start && !task.due) {
     renderEmptyRowClickTarget(g, task, row, ctx)
     return
@@ -129,8 +128,7 @@ export function renderTaskBar(g: SVGGElement, task: Task, row: number, _depth: n
 }
 
 function renderEmptyRowClickTarget(g: SVGGElement, task: Task, row: number, ctx: RendererContext): void {
-  const project = ctx.scope.projectOf(task.id)
-  if (!project) return
+  const project = ctx.scope.project
   const rowY = HEADER_HEIGHT + row * ROW_HEIGHT
 
   const hitArea = svgEl('rect', {
@@ -202,8 +200,7 @@ function renderEmptyRowClickTarget(g: SVGGElement, task: Task, row: number, ctx:
 }
 
 function renderMilestoneDiamond(g: SVGGElement, task: Task, row: number, color: string, ctx: RendererContext): void {
-  const project = ctx.scope.projectOf(task.id)
-  if (!project) return
+  const project = ctx.scope.project
   const diamond = drawMilestoneDiamond(g, ctx, task, row, color)
   diamond?.addEventListener('click', () => {
     openTaskModal(ctx.plugin, project, { task, onSave: () => ctx.onRefresh() })

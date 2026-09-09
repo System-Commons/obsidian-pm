@@ -1,34 +1,5 @@
 import { SuggestModal, App } from 'obsidian'
 import { type Task, displayName } from '@system-commons/core'
-import type { ProjectRef } from '../store'
-import { renderGlyph } from '@system-commons/ui'
-
-/** Lists projects from the index, so picking one doesn't load every project in the vault. */
-export class ProjectPickerModal extends SuggestModal<ProjectRef> {
-  constructor(
-    app: App,
-    private projects: ProjectRef[],
-    private onChoose: (project: ProjectRef) => void
-  ) {
-    super(app)
-    this.setPlaceholder('Pick a project…')
-  }
-
-  getSuggestions(query: string): ProjectRef[] {
-    const q = query.toLowerCase()
-    return this.projects.filter((p) => p.title.toLowerCase().includes(q))
-  }
-
-  renderSuggestion(project: ProjectRef, el: HTMLElement): void {
-    const row = el.createSpan({ cls: 'pm-picker-suggestion' })
-    renderGlyph(row, { icon: project.icon, color: project.color })
-    row.createSpan({ text: project.title })
-  }
-
-  onChooseSuggestion(project: ProjectRef): void {
-    this.onChoose(project)
-  }
-}
 
 export class TaskPickerModal extends SuggestModal<Task> {
   constructor(

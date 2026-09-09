@@ -1,6 +1,6 @@
 import type PMPlugin from '../../main'
 import type { StatusConfig, FlatTask } from '@system-commons/core'
-import type { ProjectScope } from '../../store'
+import type { ProjectContext } from '../../store'
 import type { GanttCanvas } from '@system-commons/ui'
 import type { DragState } from './GanttDragHandler'
 import type { LinkState } from './GanttLinkHandler'
@@ -11,7 +11,7 @@ export { renderTaskBar, renderMilestoneLabels, renderDependencyArrows } from './
 /** The drawing surfaces plus everything the interactive layer needs to edit through them. */
 export interface RendererContext extends GanttCanvas {
   plugin: PMPlugin
-  scope: ProjectScope
+  scope: ProjectContext
   /** Resolved once per render pass. */
   statuses: StatusConfig[]
   flatTasks: FlatTask[]
