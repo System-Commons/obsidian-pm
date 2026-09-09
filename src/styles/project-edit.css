@@ -108,16 +108,6 @@
   padding-right: 26px;
 }
 
-.pm-section-sublabel {
-  font-size: var(--font-ui-smaller);
-  font-weight: 600;
-  color: var(--text-muted);
-  margin: 12px 0 6px;
-}
-.pm-section-sublabel:first-child {
-  margin-top: 0;
-}
-
 .pm-cf-list {
   display: flex;
   flex-direction: column;
@@ -133,30 +123,12 @@
   border: 1px solid var(--background-modifier-border);
   flex-wrap: wrap;
 }
-.pm-cf-row--inherited {
-  align-items: center;
-  background: transparent;
-  border-style: dashed;
-}
-.pm-cf-row--hidden .pm-cf-name,
-.pm-cf-row--hidden .pm-cf-type {
-  color: var(--text-faint);
-  text-decoration: line-through;
-}
 .pm-cf-name {
   flex: 1;
   min-width: 120px;
 }
 .pm-cf-type {
   flex: 0 0 130px;
-}
-.pm-cf-row--inherited .pm-cf-type {
-  color: var(--text-muted);
-}
-.pm-cf-source {
-  align-self: center;
-  font-size: var(--font-ui-smaller);
-  color: var(--text-faint);
 }
 .pm-cf-options {
   width: 100%;
@@ -173,17 +145,6 @@
   flex: 1;
 }
 
-.pm-settings-statuses {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 8px;
-}
-.pm-settings-status-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
 .pm-palette-row .setting-item-info {
   display: none;
 }
@@ -206,17 +167,6 @@
 .pm-settings-status-label {
   flex: 1;
 }
-.pm-settings-drag-handle {
-  cursor: grab;
-  color: var(--text-muted);
-  user-select: none;
-  font-size: 14px;
-  flex: 0 0 16px;
-  text-align: center;
-}
-.pm-settings-row--dragging {
-  opacity: 0.4;
-}
 .pm-settings-complete-toggle {
   display: flex;
   align-items: center;
@@ -228,13 +178,4 @@
 .pm-settings-complete-text {
   font-size: 12px;
   color: var(--text-muted);
-}
-
-.pm-status-toggle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 6px 0 10px;
-  font-size: var(--font-ui-smaller);
-  cursor: pointer;
 }

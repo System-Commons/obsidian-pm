@@ -3,7 +3,6 @@
   overflow: auto;
 }
 
-.pm-overview-crumbs,
 .pm-overview-header,
 .pm-overview-grid {
   max-width: 1160px;
@@ -33,24 +32,6 @@
 .pm-overview-side {
   border-left: 1px solid var(--background-modifier-border);
   padding-left: 24px;
-}
-
-.pm-overview-crumbs {
-  margin-bottom: 16px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--font-ui-smaller);
-  color: var(--text-muted);
-}
-.pm-overview-crumb {
-  cursor: pointer;
-}
-.pm-overview-crumb:hover {
-  color: var(--text-accent);
-}
-.pm-overview-crumb-sep {
-  color: var(--text-faint);
 }
 
 .pm-overview-header {
@@ -166,44 +147,6 @@
   margin-top: 6px;
   font-size: var(--font-ui-smaller);
   color: var(--text-faint);
-}
-
-.pm-overview-child {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--background-modifier-border);
-  cursor: pointer;
-}
-.pm-overview-child-icon {
-  display: inline-flex;
-  align-items: center;
-  font-size: 15px;
-  --pm-glyph-size: 15px;
-  line-height: 1;
-}
-.pm-overview-child-title {
-  font-size: var(--font-ui-small);
-  font-weight: 500;
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.pm-overview-child:hover .pm-overview-child-title {
-  color: var(--text-accent);
-}
-.pm-overview-child .pm-progress {
-  width: 80px;
-  flex-shrink: 0;
-}
-.pm-overview-child-count {
-  width: 48px;
-  text-align: right;
-  font-size: var(--font-ui-smaller);
-  color: var(--text-muted);
 }
 
 .pm-overview-props .pm-prop-row {

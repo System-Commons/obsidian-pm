@@ -59,11 +59,10 @@ Card-based board grouped by status. Drag cards between columns to update status 
 - **Due date notifications** — Get reminders before tasks are due. Configurable lead time.
 
 ### Customization
-- **Custom fields** — Add per-project fields: text, number, date, select, multi-select, person, checkbox, URL.
+- **Custom fields** — Add fields to every task: text, number, date, select, multi-select, person, checkbox, URL.
 - **Custom statuses & priorities** — Edit labels, colors, and icons for each status and priority level.
-- **Per-project settings** — A project can define its own statuses and priorities and override the default view, auto-scheduling, early-finish pull-forward, the auto-archive window, and board display options. Project-defined statuses replace the global ones everywhere in that project, from kanban columns to pickers; statuses still in use by tasks always stay visible.
 - **Saved views** — Save filter/sort combinations in Table view and switch between them instantly.
-- **Team roster** — Manage a global team list for assignment across all projects, plus per-project team members.
+- **Team roster** — Keep the project's team on the project note; everyone on it is offered wherever a person is picked.
 
 ### Bulk operations
 - Multi-select tasks in Table view for batch actions:
@@ -74,14 +73,11 @@ Card-based board grouped by status. Drag cards between columns to update status 
   - Delete
 
 ### Import
-You can add any existing note from your vault to project as a task. Run **Project Manager: Import notes as tasks** in the Command Palette, pick a project, select files, then choose default status, default priority, and whether to **move** files into the task folder or **copy** them. Already-imported notes are skipped.
+You can add any existing note from your vault to the project as a task. Run **Project Manager: Import notes as tasks** in the Command Palette, select files, then choose default status, default priority, and whether to **move** files into the task folder or **copy** them. Already-imported notes are skipped.
 
 https://github.com/user-attachments/assets/64e386c5-09b5-42a6-9599-089cc54c98eb
 
-- If a project view is open, import auto-targets that project (no picker shown).
-- If no project view is open, a project picker appears first, then the import modal.
-
-You can also create a project from a note. Add `pm-project: true` to any note's frontmatter, then run **Open current file as project**.
+The project is the vault's one project note. If the vault has none yet, the command offers to create it first.
 
 
 ## Collaboration over the Project
@@ -93,7 +89,7 @@ The vault is the database. Anything that syncs your vault syncs your projects.
 
 For teams:
 
-- Add people in **Settings > Team members**, or to a project's own member list from the project modal.
+- Add people to the team on the project's settings page.
 - Assign tasks via the Assignees field. Filter by assignee in the Table view.
 - Notifications are local. Each person sees their own due date reminders.
 
@@ -149,7 +145,8 @@ Task hierarchy and dependencies don't resolve on the TaskNotes side (it uses pro
 
 | Setting | Description |
 |---|---|
-| Projects folder | Vault folder where project and task files are stored |
+| Project folder | Where the project note is created when the vault has none |
+| People folder | Where person notes are looked for and created |
 | Open projects in | Overview page, or straight to the project's tasks |
 | Default tasks view | Table, Gantt, or Kanban |
 | Open tasks in | Modal or tab. On tab, task notes open in the task editor instead of Obsidian's. |
@@ -164,7 +161,6 @@ Task hierarchy and dependencies don't resolve on the TaskNotes side (it uses pro
 | Show subtasks in Kanban | Render subtasks as their own cards, not just inside the parent |
 | Custom statuses | Edit labels, colors, and icons for each status |
 | Custom priorities | Edit labels, colors, and icons for each priority |
-| Team members | Global roster for task assignment |
 
 ## Task properties
 
@@ -186,7 +182,7 @@ Each task is a `.md` file in your vault supporting:
 | Subtasks | Nested child tasks |
 | Dependencies | Blocking/dependent task links |
 | Recurrence | Repeat interval and end date |
-| Custom fields | Any per-project fields you define |
+| Custom fields | Any fields you define in the settings |
 
 ## Installation
 
@@ -210,19 +206,18 @@ BRAT checks this repository for new releases and updates the plugin automaticall
 
 ## Quick start
 
-1. Click the dashboard icon in the ribbon (or run **Open projects pane** from the command palette).
-2. Click **New project** to create your first project. Give it a name, color, and icon.
-3. Open the project — it opens in Table view by default.
+1. Click the ribbon icon (or run **Open project** from the command palette).
+2. Click **Create project** and name it; the name defaults to the vault's.
+3. Open the tasks — they open in Table view by default.
 4. Press **+ Add task** to create your first task.
 5. Switch views using the Table / Gantt / Kanban tabs at the top.
 
 **Commands:**
 | Command | What it does |
 |---|---|
-| Open projects pane | Open the project list |
-| Create new project | Open the new project modal |
-| Create new task | Pick a project, then create a task |
-| Create new subtask | Pick a project and a parent task |
+| Open project | Open the project's overview, or its tasks per the setting |
+| Create new task | Create a task |
+| Create new subtask | Pick a parent task, then create a task under it |
 | Import notes as tasks | Convert Markdown notes into tasks |
 | Open current file as project | Open the active note as a project (needs `pm-project: true`) |
 | Undo last action | Revert the last change |
