@@ -4,7 +4,7 @@ import { defineConfig } from 'tsdown'
 
 const prod = Boolean(process.env['PRODUCTION'])
 const vaultPath = process.env['VAULT_PATH']
-const outDir = vaultPath ? `${vaultPath}/.obsidian/plugins/project-manager` : '.'
+const outDir = vaultPath ? `${vaultPath}/.obsidian/plugins/project-manager-system-commons` : '.'
 const viewerTemplate = 'packages/viewer/dist/viewer.html'
 if (!existsSync(viewerTemplate)) console.warn('viewer template missing; run `pnpm build:viewer` first or exports will refuse')
 

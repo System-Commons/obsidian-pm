@@ -1,8 +1,8 @@
 {
-  "name": "project-manager",
-  "version": "2.3.1",
-  "description": "dotpm — project management for Obsidian",
-  "repository": "github:dotpm/obsidian-pm",
+  "name": "project-manager-system-commons",
+  "version": "2.4.0",
+  "description": "Project Manager - project management for Obsidian",
+  "repository": "github:System-Commons/obsidian-pm",
   "main": "main.js",
   "type": "module",
   "scripts": {

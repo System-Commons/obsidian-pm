@@ -48,7 +48,7 @@ describe('buildSnapshot', () => {
     })
     expect(isSnapshot(snapshot)).toBe(true)
     expect(snapshot.title).toBe('Roadmap <b>')
-    expect(snapshot.generator).toEqual({ name: 'dotpm', version: '9.9.9' })
+    expect(snapshot.generator).toEqual({ name: 'project-manager', version: '9.9.9' })
     expect(snapshot.view).toMatchObject({ mode: 'gantt', sortKey: 'due', sortDir: 'desc', ganttGranularity: 'week' })
     expect(snapshot.view.filter.statuses).toEqual(['todo'])
     expect(snapshot.projects.length).toBe(1)

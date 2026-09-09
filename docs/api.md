@@ -1,6 +1,6 @@
 # Local API and MCP
 
-dotpm can serve the projects and tasks in the current vault to other programs on the same computer. Turn it on in Settings under "Local API". It is off by default, desktop only, listens on `127.0.0.1` only, and every request needs the bearer token shown in settings.
+Project Manager can serve the projects and tasks in the current vault to other programs on the same computer. Turn it on in Settings under "Local API". It is off by default, desktop only, listens on `127.0.0.1` only, and every request needs the bearer token shown in settings.
 
 Two clients speak to the same server:
 
@@ -14,7 +14,7 @@ The port is shown in settings. Each vault starts with its own, derived from the 
 Claude Code:
 
 ```sh
-claude mcp add --transport http dotpm http://127.0.0.1:<port>/mcp --header "Authorization: Bearer <token>"
+claude mcp add --transport http project-manager http://127.0.0.1:<port>/mcp --header "Authorization: Bearer <token>"
 ```
 
 Cursor, Claude Desktop and other clients that take a JSON config:
@@ -22,7 +22,7 @@ Cursor, Claude Desktop and other clients that take a JSON config:
 ```json
 {
   "mcpServers": {
-    "dotpm": {
+    "project-manager": {
       "url": "http://127.0.0.1:<port>/mcp",
       "headers": { "Authorization": "Bearer <token>" }
     }

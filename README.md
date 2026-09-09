@@ -1,20 +1,19 @@
 <div align="center">
 
-# dotpm for Obsidian
+# Project Manager for Obsidian
 *Full-featured project management, natively in your vault.*
 
-[![Obsidian community plugin](https://img.shields.io/badge/Obsidian-Community%20Plugin-7c3aed?style=for-the-badge&logo=obsidian&logoColor=white)](https://community.obsidian.md/plugins/project-manager)
-[![Downloads](https://img.shields.io/github/downloads/dotpm/obsidian-pm/total?style=for-the-badge&color=2ea44f)](https://github.com/dotpm/obsidian-pm/releases)
-[![Stars](https://img.shields.io/github/stars/dotpm/obsidian-pm?style=for-the-badge&color=007acc)](https://github.com/dotpm/obsidian-pm/stargazers)
-[![Support](https://img.shields.io/badge/Donate-Buy%20Me%20Coffee-ffdd00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://www.buymeacoffee.com/kropachev)
+[![Release](https://img.shields.io/github/v/release/System-Commons/obsidian-pm?style=for-the-badge&color=7c3aed)](https://github.com/System-Commons/obsidian-pm/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/System-Commons/obsidian-pm/total?style=for-the-badge&color=2ea44f)](https://github.com/System-Commons/obsidian-pm/releases)
+[![Build](https://img.shields.io/github/actions/workflow/status/System-Commons/obsidian-pm/build.yml?style=for-the-badge)](https://github.com/System-Commons/obsidian-pm/actions/workflows/build.yml)
 
-**[Install from Obsidian](https://community.obsidian.md/plugins/project-manager)** · **[Website](https://dotpm.pm)** · **[Changelog](CHANGELOG.md)**
+**[Install via BRAT](#via-brat-recommended)** · **[Changelog](CHANGELOG.md)**
 
 </div>
 
 Table views, Gantt charts, Kanban boards, custom fields, time tracking, smart scheduling — all stored as plain Markdown with YAML frontmatter. No external services. No sync subscriptions. Your data stays yours.
 
-<img width="1422" height="791" alt="dotpm dashboard" src="https://github.com/user-attachments/assets/ca6bc67f-e656-45be-b93a-17410555ec1a" />
+<img width="1422" height="791" alt="Project Manager dashboard" src="https://github.com/user-attachments/assets/ca6bc67f-e656-45be-b93a-17410555ec1a" />
 
 ## What's inside
 
@@ -50,7 +49,7 @@ Card-based board grouped by status. Drag cards between columns to update status 
 - **Subtasks** — Nest tasks to any depth. Collapse/expand hierarchies across all views.
 - **Dependencies** — Link blocking/dependent tasks. Visualized as arrows on the Gantt chart.
 - **Milestones** — Zero-duration tasks for key dates and deliverables.
-- **Archive** — Archive completed tasks without deleting. Toggle visibility at any time. Completed tasks can also be archived automatically once they have been done for a set number of days, or on demand with **dotpm: Archive completed tasks**.
+- **Archive** — Archive completed tasks without deleting. Toggle visibility at any time. Completed tasks can also be archived automatically once they have been done for a set number of days, or on demand with **Project Manager: Archive completed tasks**.
 
 ### Scheduling & time
 - **Drag-and-drop scheduling** — Reschedule tasks by dragging bars on the Gantt chart.
@@ -75,7 +74,7 @@ Card-based board grouped by status. Drag cards between columns to update status 
   - Delete
 
 ### Import
-You can add any existing note from your vault to project as a task. Run **dotpm: Import notes as tasks** in the Command Palette, pick a project, select files, then choose default status, default priority, and whether to **move** files into the task folder or **copy** them. Already-imported notes are skipped.
+You can add any existing note from your vault to project as a task. Run **Project Manager: Import notes as tasks** in the Command Palette, pick a project, select files, then choose default status, default priority, and whether to **move** files into the task folder or **copy** them. Already-imported notes are skipped.
 
 https://github.com/user-attachments/assets/64e386c5-09b5-42a6-9599-089cc54c98eb
 
@@ -108,17 +107,17 @@ The command **Export current view as HTML** writes the table, timeline or board 
 
 Other programs on the same computer can read and edit your tasks: a coding agent through the Model Context Protocol, a script over plain HTTP. Turn it on in **Settings > Local API**. It is off by default and only exists on desktop.
 
-When it is on, dotpm listens on `127.0.0.1` on the port shown in settings. Each vault starts with its own port, derived from the vault name so two open vaults never want the same one, and you can change it. Nothing outside this computer can connect, and every request needs the token shown next to the port. Point an MCP client at `http://127.0.0.1:<port>/mcp` with `Authorization: Bearer <token>`; Claude Code, for example:
+When it is on, the plugin listens on `127.0.0.1` on the port shown in settings. Each vault starts with its own port, derived from the vault name so two open vaults never want the same one, and you can change it. Nothing outside this computer can connect, and every request needs the token shown next to the port. Point an MCP client at `http://127.0.0.1:<port>/mcp` with `Authorization: Bearer <token>`; Claude Code, for example:
 
 ```sh
-claude mcp add --transport http dotpm http://127.0.0.1:<port>/mcp --header "Authorization: Bearer <token>"
+claude mcp add --transport http project-manager http://127.0.0.1:<port>/mcp --header "Authorization: Bearer <token>"
 ```
 
 Everything a client changes goes through the same code the views use, so it shows up in Obsidian at once. The endpoints, the MCP tools and the change feed are documented in [docs/api.md](docs/api.md).
 
 ## Using with TaskNotes
 
-dotpm works alongside the [TaskNotes](https://github.com/callumalpass/tasknotes) plugin (4.10 or newer).
+Project Manager works alongside the [TaskNotes](https://github.com/callumalpass/tasknotes) plugin (4.10 or newer).
 
 ### Import TaskNotes tasks
 
@@ -134,17 +133,17 @@ Choose **move** to turn the TaskNotes notes into task files inside the project's
 
 ### Align statuses and priorities
 
-**Settings > Import from TaskNotes** copies TaskNotes' status and priority palettes into dotpm, so both plugins use the same values, names, and colors. Entries TaskNotes doesn't know are kept.
+**Settings > Import from TaskNotes** copies TaskNotes' status and priority palettes into Project Manager, so both plugins use the same values, names, and colors. Entries TaskNotes doesn't know are kept.
 
-### Let TaskNotes see dotpm tasks
+### Let TaskNotes see Project Manager tasks
 
-TaskNotes can be configured to list and edit dotpm tasks in place, without conversion:
+TaskNotes can be configured to list and edit Project Manager tasks in place, without conversion:
 
 1. In TaskNotes settings, set task identification to **property** with name `pm-task` and value `true`.
 2. In its field mapping, map **scheduled** to `start`.
-3. Add your dotpm status and priority values to TaskNotes' palettes.
+3. Add your Project Manager status and priority values to TaskNotes' palettes.
 
-Task hierarchy and dependencies don't resolve on the TaskNotes side (it uses project links and `blockedBy`, dotpm uses id references), but both plugins edit frontmatter non-destructively, so each one's extra fields survive the other's writes.
+Task hierarchy and dependencies don't resolve on the TaskNotes side (it uses project links and `blockedBy`, Project Manager uses id references), but both plugins edit frontmatter non-destructively, so each one's extra fields survive the other's writes.
 
 ## Settings
 
@@ -191,25 +190,21 @@ Each task is a `.md` file in your vault supporting:
 
 ## Installation
 
-### From Obsidian (recommended)
+This plugin is not in the Obsidian community plugin directory. Install it through BRAT, which also keeps it up to date as new releases are published here.
 
-1. Open **Settings > Community plugins** and make sure Restricted mode is off.
-2. Click **Browse**, search for **dotpm**, and click **Install**.
-3. Click **Enable**.
-
-Or open the listing directly: [community.obsidian.md/plugins/project-manager](https://community.obsidian.md/plugins/project-manager).
-
-### Via BRAT (beta releases)
+### Via BRAT (recommended)
 
 1. Install the [BRAT plugin](https://github.com/TfTHacker/obsidian42-brat) from the community store.
 2. Open BRAT settings > **Add Beta Plugin**.
-3. Enter: `https://github.com/dotpm/obsidian-pm`
+3. Enter: `https://github.com/System-Commons/obsidian-pm`
 4. Enable the plugin in **Settings > Community plugins**.
+
+BRAT checks this repository for new releases and updates the plugin automatically.
 
 ### Manual
 
-1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](../../releases/latest).
-2. Create a folder: `<vault>/.obsidian/plugins/project-manager/`
+1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/System-Commons/obsidian-pm/releases/latest).
+2. Create a folder: `<vault>/.obsidian/plugins/project-manager-system-commons/`
 3. Copy the three files into that folder.
 4. Reload Obsidian and enable the plugin under **Settings > Community plugins**.
 
@@ -253,37 +248,28 @@ dependencies: ["task-abc123"]
 Task description in Markdown goes here.
 ```
 
-## Settings
-
-| Setting | Description |
-|---|---|
-| Projects folder | Vault folder where project and task files are stored |
-| Default tasks view | Table, Gantt, or Kanban |
-| Gantt granularity | Default timeline scale (day / week / month / quarter / year) |
-| Gantt week labels | Week number, date range, or both |
-| Due date notifications | Reminders N days before due dates |
-| Custom statuses | Edit labels, colors, and icons for each status |
-| Custom priorities | Edit labels, colors, and icons for each priority |
-| Team members | Global roster for task assignment |
-
 ## Requirements
 
-- Obsidian **1.4.0** or later
-- Desktop and mobile supported
+- Obsidian **1.13.0** or later
+- Desktop and mobile supported (the local API and MCP server are desktop only)
+
+## Development
+
+```sh
+pnpm install
+pnpm dev      # rebuild on change; set VAULT_PATH to write straight into a vault
+pnpm check    # lint, format and type checks
+pnpm test
+pnpm build
+```
+
+To publish a release, bump the version in `manifest.json`, `package.json` and `versions.json`, then push a tag with the same number. The release workflow builds the plugin, attaches `main.js`, `manifest.json` and `styles.css` to a GitHub release, and BRAT picks it up from there.
 
 ## Contributing
 
-I appreciate community interest in the project! However, since this plugin is maintained by one person in their spare time, I have strict rules to keep the codebase clean, stable, and manageable. 
-
-If you want to contribute, please follow these rules:
-
-1. **Open an Issue first:** Do not submit a Pull Request for new features, architecture changes, or major refactoring without discussing it in an issue first. Uncoordinated PRs will be closed.
-2. **No AI-generated bulk code:** I do not accept massive, AI-generated PRs. Code must be human-readable, minimalistic, and match the existing project style.
-3. **Pass the CI:** Make sure your code passes all strict type checks, linters, and tests. Run `pnpm check`, `pnpm check:submission`, and `pnpm test` locally before pushing.
-4. **Keep it small:** PRs should be strictly focused on a single issue. 
-
-Bug fixes and thoroughly discussed features are always welcome!
+1. **Pass the CI:** run `pnpm check`, `pnpm check:submission`, and `pnpm test` locally before pushing.
+2. **Keep it small:** PRs should be focused on a single change.
 
 ## License
 
-MIT
+MIT. This plugin is maintained by System Commons and is a fork of [dotpm/obsidian-pm](https://github.com/dotpm/obsidian-pm); the upstream copyright notice is retained in [LICENSE](LICENSE).

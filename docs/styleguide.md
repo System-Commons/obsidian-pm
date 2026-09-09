@@ -1,6 +1,6 @@
 # UI styleguide (component catalog)
 
-Read this before building or changing any UI. It's the component API catalog: what exists and what to reach for. The design language (color, typography, spacing, radii, shadows, voice) lives in `docs/design-system.md`. The layer rules (primitives / composites / orchestrators and what each may import) live in CLAUDE.md under "UI layers".
+Read this before building or changing any UI. It's the component API catalog: what exists and what to reach for.
 
 Verify appearance in the live gallery (see "Live gallery" below), never in an offline HTML page: without Obsidian's core `app.css` the controls misrender.
 

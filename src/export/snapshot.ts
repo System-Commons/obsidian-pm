@@ -93,7 +93,7 @@ export async function buildSnapshot(plugin: PMPlugin, scope: ProjectScope, view:
   return {
     format: SNAPSHOT_FORMAT,
     version: SNAPSHOT_VERSION,
-    generator: { name: 'dotpm', version: plugin.manifest.version },
+    generator: { name: 'project-manager', version: plugin.manifest.version },
     exportedAt: new Date().toISOString(),
     title: scope.label(),
     primaryProjectId: primary.id,

@@ -106,7 +106,7 @@ export default class PMPlugin extends Plugin {
     this.localApi = new LocalApiServer(
       {
         api,
-        info: { name: 'dotpm', version: this.manifest.version },
+        info: { name: 'project-manager', version: this.manifest.version },
         authorized: bearerAuth(() => this.settings.localApiToken)
       },
       () => this.settings.localApiPort

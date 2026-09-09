@@ -9,7 +9,7 @@ const stylesDir = join(root, 'src/styles')
 
 const prod = Boolean(process.env['PRODUCTION'])
 const vaultPath = process.env['VAULT_PATH']
-const outDir = vaultPath ? `${vaultPath}/.obsidian/plugins/project-manager` : root
+const outDir = vaultPath ? `${vaultPath}/.obsidian/plugins/project-manager-system-commons` : root
 const outFile = join(outDir, 'styles.css')
 
 function build() {
