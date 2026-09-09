@@ -11,12 +11,12 @@ export interface PeopleSource {
 }
 
 /**
- * The people every picker offers: the global members plus whatever the caller already knows
- * about, one entry per person, then the vault's person notes once the user types.
+ * The people every picker offers: whatever the caller already knows about (the team, the
+ * assignees in use), one entry per person, then the vault's person notes once the user types.
  */
 export function peopleSource(plugin: PMPlugin, sourcePath: string, extra: () => string[] = () => []): PeopleSource {
   return {
-    known: () => dedupePeople([...extra(), ...plugin.settings.globalTeamMembers], personKeyer(plugin.app)),
+    known: () => dedupePeople(extra(), personKeyer(plugin.app)),
     search: (query) => personCandidates(plugin.app, plugin.settings.peopleFolder, query, sourcePath)
   }
 }
@@ -26,7 +26,7 @@ export interface PersonPickerOpts {
   plugin: PMPlugin
   /** The note the picked value is written into, so its link resolves from there. */
   sourcePath: string
-  /** People to offer besides the global members and the current value. */
+  /** People to offer besides the current value. */
   extra?: () => string[]
   addLabel: string
   selected: () => string[]
@@ -35,9 +35,9 @@ export interface PersonPickerOpts {
 }
 
 /**
- * The one control for picking people, behind assignees, project members, global members and
- * person custom fields: the members first, the vault's person notes once the user types, and
- * rows to add a typed name or create the note for it.
+ * The one control for picking people, behind assignees, the team and person custom
+ * fields: the known people first, the vault's person notes once the user types, and rows
+ * to add a typed name or create the note for it.
  */
 export function renderPersonPicker(opts: PersonPickerOpts): void {
   const { plugin } = opts

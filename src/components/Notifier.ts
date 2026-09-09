@@ -32,33 +32,28 @@ export class Notifier {
     const leadDays = this.plugin.settings.notificationLeadDays
     const now = today()
     const threshold = now.add({ days: leadDays })
+    const complete = this.plugin.index.completeStatuses()
 
-    for (const project of this.plugin.index.projectRefs()) {
-      const complete = this.plugin.index.completeStatuses(project)
-      for (const task of this.plugin.index.taskRefs(project.path)) {
-        const due = parsePlainDate(task.due)
-        if (!due) continue
-        if (task.archived || complete.has(task.status)) continue
+    for (const task of this.plugin.index.taskRefs()) {
+      const due = parsePlainDate(task.due)
+      if (!due) continue
+      if (task.archived || complete.has(task.status)) continue
 
-        const cmpToToday = Temporal.PlainDate.compare(due, now)
-        const isOverdue = cmpToToday < 0
-        const isDueSoon = cmpToToday >= 0 && Temporal.PlainDate.compare(due, threshold) <= 0
+      const cmpToToday = Temporal.PlainDate.compare(due, now)
+      const isOverdue = cmpToToday < 0
+      const isDueSoon = cmpToToday >= 0 && Temporal.PlainDate.compare(due, threshold) <= 0
 
-        const notifKey = `${task.id}-${task.due}`
+      const notifKey = `${task.id}-${task.due}`
 
-        if (isOverdue && !this.notifiedIds.has(notifKey + '-overdue')) {
-          this.notifiedIds.add(notifKey + '-overdue')
-          const daysAgo = now.since(due, { largestUnit: 'days' }).days
-          new Notice(`⚠️ Overdue: "${task.title}" in ${project.title} was due ${daysAgo}d ago`, 8000)
-        } else if (isDueSoon && !this.notifiedIds.has(notifKey + '-soon')) {
-          this.notifiedIds.add(notifKey + '-soon')
-          const daysLeft = due.since(now, { largestUnit: 'days' }).days
-          const msg =
-            daysLeft === 0
-              ? `📅 Due today: "${task.title}" in ${project.title}`
-              : `📅 Due in ${daysLeft}d: "${task.title}" in ${project.title}`
-          new Notice(msg, 6000)
-        }
+      if (isOverdue && !this.notifiedIds.has(notifKey + '-overdue')) {
+        this.notifiedIds.add(notifKey + '-overdue')
+        const daysAgo = now.since(due, { largestUnit: 'days' }).days
+        new Notice(`⚠️ Overdue: "${task.title}" was due ${daysAgo}d ago`, 8000)
+      } else if (isDueSoon && !this.notifiedIds.has(notifKey + '-soon')) {
+        this.notifiedIds.add(notifKey + '-soon')
+        const daysLeft = due.since(now, { largestUnit: 'days' }).days
+        const msg = daysLeft === 0 ? `📅 Due today: "${task.title}"` : `📅 Due in ${daysLeft}d: "${task.title}"`
+        new Notice(msg, 6000)
       }
     }
   }

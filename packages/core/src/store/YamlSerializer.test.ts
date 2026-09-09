@@ -40,7 +40,6 @@ function fixtureProject(): Project {
   project.id = 'project-1'
   project.description = 'A project.'
   project.teamMembers = ['Alice', 'Bob']
-  project.customFields = [{ id: 'cf-1', name: 'Sprint', type: 'text' }]
   project.savedViews = [
     {
       id: 'view-1',

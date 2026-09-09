@@ -76,26 +76,18 @@ export interface Project {
   color: string // hex
   icon: string // emoji
   tasks: Task[]
-  customFields: CustomFieldDef[]
   teamMembers: string[]
   createdAt: string
   updatedAt: string
   filePath: string // resolved vault path
   savedViews: SavedView[]
-  /** The project this one sits under, resolved from its `parent` link. */
-  parentPath?: string
-  /** Per-project overrides for the global settings. Absent fields inherit. */
-  config?: ProjectConfig
   /** Not serialized. Rebuilt on load, maintained by the store's mutators. */
   taskIndex: TaskIndex
 }
 
 /** Tasks are excluded: they change through the task mutators, never a whole-project write. */
 export type ProjectPatch = Partial<
-  Pick<
-    Project,
-    'title' | 'description' | 'color' | 'icon' | 'customFields' | 'teamMembers' | 'savedViews' | 'config' | 'parentPath'
-  >
+  Pick<Project, 'title' | 'description' | 'color' | 'icon' | 'teamMembers' | 'savedViews'>
 >
 
 export interface FilterState {
@@ -130,26 +122,10 @@ export interface StatusConfig {
   complete: boolean
 }
 
-/** Overrides a project may set in its own file. An absent field falls back to the global settings. */
-export interface ProjectConfig {
-  statuses?: StatusConfig[]
-  priorities?: PriorityConfig[]
-  priorityIcons?: PriorityIconSet
-  /** Inherited field ids this project leaves out. Its own fields are never listed. */
-  hiddenCustomFields?: string[]
-  defaultView?: ViewMode
-  autoSchedule?: boolean
-  pullForwardOnEarlyFinish?: boolean
-  autoArchiveDays?: number
-  showSubtreeConnections?: boolean
-  lineBorders?: LineBorders
-  kanbanShowSubtasks?: boolean
-  kanbanShowDescriptionPreview?: boolean
-}
-
 /**
- * A project's config with every fallback applied. Views and modals read this rather
- * than the global settings, so another task source can supply its own catalogs.
+ * The settings as the project sees them, with the statuses and priorities its tasks still
+ * use kept in. Views and modals read this rather than the global settings, so another task
+ * source can supply its own catalogs.
  */
 export interface ResolvedProjectConfig {
   statuses: StatusConfig[]
@@ -193,7 +169,7 @@ export const PRIORITY_ICON_SET_LABELS: Record<PriorityIconSet, string> = {
 }
 
 export interface PMSettings {
-  /** Where new projects are created. Projects are discovered vault-wide, wherever they live. */
+  /** Where the project note is created when the vault has none. It is found wherever it lives. */
   projectsFolder: string
   peopleFolder: string
   /** Folders discovery skips, for templates and archives holding pm-project notes. */
@@ -205,9 +181,8 @@ export interface PMSettings {
   priorities: PriorityConfig[]
   /** Icons for priorities that don't carry their own. */
   priorityIcons: PriorityIconSet
-  /** Task properties every project starts with. A project adds to these, or overrides one by id. */
+  /** Extra properties on every task. */
   customFields: CustomFieldDef[]
-  globalTeamMembers: string[]
   notificationsEnabled: boolean
   notificationLeadDays: number
   /** Days after completion before a task moves to its project's archive. 0 turns it off. */
@@ -272,7 +247,6 @@ export const DEFAULT_SETTINGS: PMSettings = {
   priorities: DEFAULT_PRIORITIES,
   priorityIcons: 'chevrons',
   customFields: [],
-  globalTeamMembers: [],
   showSubtreeConnections: true,
   lineBorders: 'none',
   kanbanShowSubtasks: false,
@@ -336,7 +310,6 @@ export function makeProject(title: string, filePath: string): Project {
     color: DEFAULT_PROJECT_COLOR,
     icon: DEFAULT_PROJECT_ICON,
     tasks: [],
-    customFields: [],
     teamMembers: [],
     createdAt: now,
     updatedAt: now,

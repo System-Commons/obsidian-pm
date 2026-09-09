@@ -289,19 +289,13 @@ describe('hydration does not alias the source frontmatter', () => {
     const fm: Record<string, unknown> = {
       id: 'p1',
       title: 'Project',
-      customFields: [{ id: 'cf1', name: 'Sprint', type: 'text' }],
       teamMembers: ['Alice']
     }
 
     const project = hydrateProjectFromFrontmatter(fm, '', 'Projects/P.md', 'P')
 
-    expect(project.customFields).not.toBe(fm.customFields)
     expect(project.teamMembers).not.toBe(fm.teamMembers)
-
-    project.customFields.push({ id: 'cf2', name: 'Points', type: 'number' })
     project.teamMembers.push('Bob')
-
-    expect((fm.customFields as unknown[]).length).toBe(1)
     expect(fm.teamMembers).toEqual(['Alice'])
   })
 })
@@ -309,8 +303,6 @@ describe('hydration does not alias the source frontmatter', () => {
 describe('foreign frontmatter', () => {
   it('owns every key the serializers write', () => {
     const project = makeProject('P', 'Projects/P.md')
-    project.parentPath = 'Projects/Parent.md'
-    project.config = { defaultView: 'kanban' }
     const task = makeTask({
       id: 't-full',
       title: 'Full',

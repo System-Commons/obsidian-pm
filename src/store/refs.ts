@@ -32,10 +32,6 @@ function refTarget(app: App, raw: string, sourcePath: string): TFile | null {
   return app.metadataCache.getFirstLinkpathDest(linkpath, sourcePath)
 }
 
-export function refToPath(app: App, raw: string, sourcePath: string): string | null {
-  return refTarget(app, raw, sourcePath)?.path ?? null
-}
-
 /**
  * The id a reference points at. `idByPath` covers the notes the caller has already read,
  * which is every task in the project being loaded; anything outside it costs a cache read.

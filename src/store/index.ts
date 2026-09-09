@@ -18,11 +18,4 @@ export {
   resolvePerson
 } from './people'
 export type { PersonCandidate, PersonLinkState, PersonMatch, PersonRef } from './people'
-export {
-  folderOf,
-  projectFilePath,
-  projectFolderOf,
-  projectPathForTaskPath,
-  projectTaskFolder,
-  TASK_FOLDER_NAME
-} from './vaultFs'
+export { folderOf, projectFilePath, projectFolderOf, projectTaskFolder, TASK_FOLDER_NAME } from './vaultFs'

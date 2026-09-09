@@ -48,7 +48,7 @@ export async function archiveTask(
   const task = findTaskById(project, taskId)
   if (!task) return
 
-  const archiveFolder = normalizePath(projectTaskFolder(app, project.filePath) + '/Archive')
+  const archiveFolder = normalizePath(projectTaskFolder(project.filePath) + '/Archive')
   await ensureFolder(app, archiveFolder)
 
   for (const t of subtree(task)) {
@@ -65,7 +65,7 @@ export async function unarchiveTask(
   const task = findTaskById(project, taskId)
   if (!task) return
 
-  const taskFolder = normalizePath(projectTaskFolder(app, project.filePath))
+  const taskFolder = normalizePath(projectTaskFolder(project.filePath))
   for (const t of subtree(task)) {
     if (await moveTaskFile(app, t, taskFolder, markSelfWrite)) t.archived = false
   }
@@ -111,13 +111,13 @@ export function collectArchivable(
  */
 export function withoutBlockedDependents(
   candidates: ArchiveCandidate[],
-  index: { allTaskRefs(): TaskRef[] }
+  index: { taskRefs(): TaskRef[] }
 ): ArchiveCandidate[] {
   let kept = candidates
   for (;;) {
     const moving = new Set(kept.flatMap((candidate) => candidate.ids))
     const needed = new Set<string>()
-    for (const ref of index.allTaskRefs()) {
+    for (const ref of index.taskRefs()) {
       if (ref.archived || moving.has(ref.id)) continue
       for (const id of ref.dependencies) needed.add(id)
     }

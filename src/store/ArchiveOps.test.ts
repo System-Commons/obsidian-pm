@@ -18,9 +18,7 @@ function done(id: string, completed: string, overrides: Partial<Task> = {}): Tas
 function ref(id: string, dependencies: string[], archived = false): TaskRef {
   return {
     id,
-    path: `Projects/Roadmap_tasks/${id}.md`,
-    projectId: 'p1',
-    projectPath: 'Projects/Roadmap.md',
+    path: `Projects/Roadmap/_tasks/${id}.md`,
     title: id,
     status: 'todo',
     priority: 'medium',
@@ -33,7 +31,7 @@ function ref(id: string, dependencies: string[], archived = false): TaskRef {
   }
 }
 
-const index = (refs: TaskRef[]) => ({ allTaskRefs: () => refs })
+const index = (refs: TaskRef[]) => ({ taskRefs: () => refs })
 
 describe('collectArchivable', () => {
   it('picks tasks completed on or before the cutoff', () => {

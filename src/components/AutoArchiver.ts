@@ -1,6 +1,6 @@
 import type PMPlugin from '../main'
 import { type Project, today, isTerminalStatus } from '@system-commons/core'
-import { type ArchiveCandidate, collectArchivable, withoutBlockedDependents } from '../store'
+import { collectArchivable, withoutBlockedDependents } from '../store'
 import { safeAsync } from '@system-commons/ui'
 
 const CHECK_INTERVAL_MS = 60 * 60 * 1000
@@ -12,7 +12,7 @@ export interface ArchivePlan {
 }
 
 /**
- * Moves tasks complete for longer than their project's window into its archive folder.
+ * Moves tasks complete for longer than the auto-archive window into the archive folder.
  * The pass is keyed on the date rather than on elapsed time, so a vault that stayed closed
  * for a week catches up the next time it opens.
  */
@@ -33,78 +33,56 @@ export class AutoArchiver {
 
   async check(): Promise<void> {
     const settings = this.plugin.settings
-    const configured = this.plugin.index
-      .projectRefs()
-      .some((ref) => (ref.autoArchiveDays ?? settings.autoArchiveDays) > 0)
-    if (!configured) return
+    if (settings.autoArchiveDays <= 0) return
 
     const stamp = today().toString()
     if (settings.lastAutoArchiveDate === stamp || this.running) return
     this.running = true
     try {
-      const plans = await this.plan(this.plugin.index.projectPaths(), false)
-      const tasks = await this.apply(plans)
+      const tasks = await this.apply(await this.plan(false))
       settings.lastAutoArchiveDate = stamp
       await this.plugin.saveSettings()
-      if (tasks) this.plugin.showNotice(`Archived ${tasks} completed task(s) in ${plans.length} project(s).`)
+      if (tasks) this.plugin.showNotice(`Archived ${tasks} completed task(s).`)
     } finally {
       this.running = false
     }
   }
 
   /**
-   * The index says which projects hold anything old enough, so only those are loaded, and
-   * `includeDisabled` takes in the ones whose window is off. Dependencies are resolved
-   * across the whole plan rather than project by project, because a task can wait on one
-   * in another project.
+   * What the sweep would move. The index says whether anything is old enough before the
+   * project is loaded, and `includeDisabled` takes in a window that is off, for the
+   * command that archives everything finished.
    */
-  async plan(projectPaths: string[], includeDisabled: boolean): Promise<ArchivePlan[]> {
-    const entries: { project: Project; candidate: ArchiveCandidate }[] = []
-    for (const path of projectPaths) {
-      const ref = this.plugin.index.projectRef(path)
-      if (!ref) continue
-      const days = ref.autoArchiveDays ?? this.plugin.settings.autoArchiveDays
-      if (days === 0 && !includeDisabled) continue
-      const cutoff = today().subtract({ days }).toString()
+  async plan(includeDisabled: boolean): Promise<ArchivePlan | null> {
+    const days = this.plugin.settings.autoArchiveDays
+    if (days === 0 && !includeDisabled) return null
+    const cutoff = today().subtract({ days }).toString()
 
-      const complete = this.plugin.index.completeStatuses(ref)
-      const anyOldEnough = this.plugin.index
-        .taskRefs(path)
-        .some((task) => !task.archived && complete.has(task.status) && !!task.completed && task.completed <= cutoff)
-      if (!anyOldEnough) continue
+    const index = this.plugin.index
+    const complete = index.completeStatuses()
+    const anyOldEnough = index
+      .taskRefs()
+      .some((task) => !task.archived && complete.has(task.status) && !!task.completed && task.completed <= cutoff)
+    if (!anyOldEnough) return null
 
-      const project = await this.plugin.store.loadProjectByPath(path)
-      if (!project) continue
-      const statuses = this.plugin.store.configFor(project).statuses
-      for (const candidate of collectArchivable(project, (status) => isTerminalStatus(status, statuses), cutoff)) {
-        entries.push({ project, candidate })
-      }
-    }
-
-    const kept = new Set(
-      withoutBlockedDependents(
-        entries.map((entry) => entry.candidate),
-        this.plugin.index
-      ).map((candidate) => candidate.rootId)
+    const project = await this.plugin.project()
+    if (!project) return null
+    const statuses = this.plugin.store.configFor(project).statuses
+    const candidates = withoutBlockedDependents(
+      collectArchivable(project, (status) => isTerminalStatus(status, statuses), cutoff),
+      index
     )
-
-    const plans = new Map<Project, ArchivePlan>()
-    for (const { project, candidate } of entries) {
-      if (!kept.has(candidate.rootId)) continue
-      const plan = plans.get(project) ?? { project, rootIds: [], tasks: 0 }
-      plan.rootIds.push(candidate.rootId)
-      plan.tasks += candidate.ids.length
-      plans.set(project, plan)
+    if (!candidates.length) return null
+    return {
+      project,
+      rootIds: candidates.map((candidate) => candidate.rootId),
+      tasks: candidates.reduce((sum, candidate) => sum + candidate.ids.length, 0)
     }
-    return [...plans.values()]
   }
 
-  async apply(plans: ArchivePlan[]): Promise<number> {
-    let tasks = 0
-    for (const plan of plans) {
-      await this.plugin.store.archiveTasks(plan.project, plan.rootIds)
-      tasks += plan.tasks
-    }
-    return tasks
+  async apply(plan: ArchivePlan | null): Promise<number> {
+    if (!plan) return 0
+    await this.plugin.store.archiveTasks(plan.project, plan.rootIds)
+    return plan.tasks
   }
 }

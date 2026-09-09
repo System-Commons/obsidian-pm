@@ -341,22 +341,7 @@ export function renderTaskFormFields(container: HTMLElement, ctx: TaskFormFields
     const ownTasks = flattenTasks(project.tasks)
       .map((f) => f.task)
       .filter((t) => t.id !== task.id)
-    const ownIds = new Set(ownTasks.map((t) => t.id))
-    // Tasks in other projects can be depended on too, so the picker offers the whole
-    // vault, this project first and everything else labelled with its project.
-    const foreign = plugin.index
-      .allTaskRefs()
-      .filter((ref) => ref.id !== task.id && !ownIds.has(ref.id))
-      .map((ref) => ({
-        id: ref.id,
-        label: ref.projectPath
-          ? `${ref.title}  ·  ${plugin.index.projectRef(ref.projectPath)?.title ?? ''}`.trimEnd()
-          : ref.title
-      }))
-    const allTasks: { id: string; label: string }[] = [
-      ...ownTasks.map((t) => ({ id: t.id, label: t.title })),
-      ...foreign
-    ]
+    const allTasks: { id: string; label: string }[] = ownTasks.map((t) => ({ id: t.id, label: t.title }))
     const titleOf = (id: string) => allTasks.find((t) => t.id === id)?.label ?? id
     const depRow = renderPropRow(
       grid,
@@ -372,13 +357,12 @@ export function renderTaskFormFields(container: HTMLElement, ctx: TaskFormFields
           depsList: true,
           labelFor: titleOf,
           linkFor: (id) => {
-            const path = plugin.index.task(id)?.path
+            const path = ownTasks.find((t) => t.id === id)?.filePath
             return path ? { path, open: () => ctx.openTask(path) } : null
           },
           selected: () => task.dependencies.filter((id) => allTasks.some((t) => t.id === id)),
           options: () => {
-            // Built once per open, not once per candidate. A predecessor chain can leave
-            // this project and come back, so every candidate is checked against the vault.
+            // Built once per open, not once per candidate.
             const edges = plugin.index.dependentsMap()
             return allTasks.filter((t) => task.dependencies.includes(t.id) || !reaches(edges, task.id, t.id))
           },
@@ -397,7 +381,7 @@ export function renderTaskFormFields(container: HTMLElement, ctx: TaskFormFields
   }
 
   // The other side of a dependency, which is otherwise only visible from the task that
-  // declared it, and invisible altogether when that task is in another project.
+  // declared it.
   const blocks = plugin.index.dependents(task.id)
   if (blocks.length) {
     const blocksRow = renderPropRow(
@@ -407,11 +391,9 @@ export function renderTaskFormFields(container: HTMLElement, ctx: TaskFormFields
         const cell = createDiv('pm-prop-value')
         const list = cell.createDiv('pm-prop-deps')
         for (const ref of blocks) {
-          const owner = ref.projectPath ? plugin.index.projectRef(ref.projectPath) : null
           renderDepRow(list, {
             id: ref.id,
             title: ref.title,
-            tooltip: owner ? `In ${owner.title}` : undefined,
             link: { path: ref.path, open: () => ctx.openTask(ref.path) }
           })
         }

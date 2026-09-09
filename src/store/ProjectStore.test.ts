@@ -316,59 +316,6 @@ describe('ProjectStore round-trip', () => {
     const reloadedB = expectDefined(flat.find((f) => f.task.id === b.id)).task
     expect(reloadedB.status).toBe('in-progress')
   })
-
-  it('writes the parent as a wikilink and resolves it back on load', async () => {
-    const { app, vault } = makeFakeApp({ liveMetadataCache: true })
-    const store = new ProjectStore(app as unknown as App, () => SETTINGS)
-    await store.createProject('Platform', 'Projects')
-    const child = await store.createProject('Billing', 'Work')
-    await store.updateProject(child, { parentPath: 'Projects/Platform/Platform.md' })
-
-    const content = await vault.cachedRead(fileAt(app as unknown as App, child.filePath))
-    expect(content).toContain('parent: "[[Projects/Platform/Platform]]"')
-
-    const store2 = new ProjectStore(app as unknown as App, () => SETTINGS)
-    const reloaded = await store2.loadProject(fileAt(app as unknown as App, child.filePath))
-    expect(reloaded?.parentPath).toBe('Projects/Platform/Platform.md')
-  })
-
-  it('migrates an old-format (embedded tasks) project on load and save', async () => {
-    const { store, vault } = newStore()
-    // Manually write an old-format project file (tasks embedded in frontmatter).
-    const oldFm = [
-      '---',
-      'pm-project: true',
-      'id: legacy',
-      'title: Legacy',
-      'tasks:',
-      '  - id: t1',
-      '    title: First',
-      '    status: todo',
-      '  - id: t2',
-      '    title: Second',
-      '    status: done',
-      '---',
-      ''
-    ].join('\n')
-    await vault.create('Projects/Legacy.md', oldFm)
-
-    const file = vault.getAbstractFileByPath('Projects/Legacy.md')
-    if (!(file instanceof TFile)) throw new Error('legacy file missing')
-    const project = await store.loadProject(file)
-    if (!project) throw new Error('load failed')
-
-    // markAllDirty should have flagged every embedded task; saving once writes them all.
-    await store.saveProject(project)
-
-    expect(vault.getAbstractFileByPath('Projects/Legacy_tasks/first.md')).not.toBeNull()
-    expect(vault.getAbstractFileByPath('Projects/Legacy_tasks/second.md')).not.toBeNull()
-    expect(await vault.cachedRead(file)).not.toMatch(/^tasks:/m)
-
-    const reloaded = await store.loadProject(file)
-    if (!reloaded) throw new Error('reload failed')
-    const flat = flattenTasks(reloaded.tasks)
-    expect(flat.map((f) => f.task.title).sort()).toEqual(['First', 'Second'])
-  })
 })
 
 describe('ProjectStore completion date', () => {
@@ -488,18 +435,6 @@ describe('ProjectStore pull-forward on early finish', () => {
   it('leaves the dependent in place when the option is off', async () => {
     const { blocked } = await chain(false)
     expect(blocked.start).toBe(addDays(BLOCKER_DUE, 1))
-  })
-
-  it('keeps a project-level override across a reload', async () => {
-    const { store, vault, app } = newStore()
-    const project = await store.createProject('Override', 'Projects')
-    project.config = { pullForwardOnEarlyFinish: true }
-    await store.saveProject(project)
-
-    const file = vault.getAbstractFileByPath(project.filePath)
-    if (!(file instanceof TFile)) throw new Error('project file missing')
-    const reloaded = expectDefined(await new ProjectStore(app, () => SETTINGS).loadProject(file))
-    expect(reloaded.config?.pullForwardOnEarlyFinish).toBe(true)
   })
 
   it('pushes the dependent back out when the blocker is reopened', async () => {
@@ -1109,72 +1044,64 @@ describe('ProjectStore.importTaskForest', () => {
   })
 })
 
-describe('per-project config', () => {
-  it('round-trips the config overrides through the project file', async () => {
-    const { store, vault, app } = newStore()
-    const project = await store.createProject('Custom', 'Projects')
-    project.config = {
-      statuses: [
-        { id: 'idea', label: 'Idea', color: '#888888', icon: '', complete: false },
-        { id: 'shipped', label: 'Shipped', color: '#00aa00', icon: '', complete: true }
-      ],
-      priorities: [
-        { id: 'urgent', label: 'Urgent', color: '#ff0000', icon: '' },
-        { id: 'later', label: 'Later', color: '#888888', icon: '' }
-      ],
-      priorityIcons: 'signal',
-      defaultView: 'kanban',
-      autoSchedule: false
-    }
-    await store.saveProject(project)
-
-    const store2 = new ProjectStore(app, () => SETTINGS)
-    const file = vault.getAbstractFileByPath(project.filePath)
-    if (!(file instanceof TFile)) throw new Error('project file missing')
-    const reloaded = expectDefined(await store2.loadProject(file))
-    expect(reloaded.config).toEqual(project.config)
-  })
-
-  it('omits the frontmatter key when the project overrides nothing', async () => {
-    const { store, vault, app } = newStore()
-    const project = await store.createProject('Inherit', 'Projects')
-    await store.saveProject(project)
-
-    const store2 = new ProjectStore(app, () => SETTINGS)
-    const file = vault.getAbstractFileByPath(project.filePath)
-    if (!(file instanceof TFile)) throw new Error('project file missing')
-    expect(await vault.read(file)).not.toContain('config:')
-    const reloaded = expectDefined(await store2.loadProject(file))
-    expect(reloaded.config).toBeUndefined()
-  })
-
-  it('stamps completion using the project-defined complete flag', async () => {
-    const { store } = newStore()
-    const project = await store.createProject('Flags', 'Projects')
-    project.config = {
-      statuses: [
-        { id: 'idea', label: 'Idea', color: '#888888', icon: '', complete: false },
-        { id: 'shipped', label: 'Shipped', color: '#00aa00', icon: '', complete: true }
-      ]
-    }
-    const task = await addNamed(store, project, 'Ship it')
-    await store.updateTask(project, task.id, { status: 'shipped' })
-    expect(expectDefined(findTask(project.tasks, task.id)).completed).not.toBe('')
-  })
-
-  it('skips auto-scheduling when the project turns it off', async () => {
-    const { store } = newStore()
+describe('scheduling settings', () => {
+  it('skips auto-scheduling when the setting is off', async () => {
+    let autoSchedule = true
+    const { app } = makeFakeApp()
+    const store = new ProjectStore(app as unknown as App, () => ({ ...SETTINGS, autoSchedule }))
     const project = await store.createProject('NoSched', 'Projects')
     const a = await addNamed(store, project, 'First')
     const b = await addNamed(store, project, 'Second')
     await store.updateTask(project, a.id, { start: '2026-07-06', due: '2026-07-10' })
     await store.updateTask(project, b.id, { start: '2026-07-01', due: '2026-07-02', dependencies: [a.id] })
 
-    project.config = { autoSchedule: false }
+    autoSchedule = false
     expect(await store.scheduleAfterChange(project, a.id)).toBe(0)
 
-    project.config = undefined
+    autoSchedule = true
     expect(await store.scheduleAfterChange(project, a.id)).toBeGreaterThan(0)
+  })
+
+  it('folds custom fields an earlier version kept on the note into the settings', async () => {
+    const { app, vault } = makeFakeApp()
+    const settings: PMSettings = { ...SETTINGS, customFields: [{ id: 'cf-a', name: 'A', type: 'text' }] }
+    let saved = 0
+    const store = new ProjectStore(
+      app as unknown as App,
+      () => settings,
+      undefined,
+      () => {
+        saved++
+        return Promise.resolve()
+      }
+    )
+    await vault.create(
+      'Projects/Old/Old.md',
+      [
+        '---',
+        'pm-project: true',
+        'id: p1',
+        'title: Old',
+        'taskIds: []',
+        'customFields:',
+        '  - id: cf-a',
+        '    name: A renamed',
+        '    type: text',
+        '  - id: cf-b',
+        '    name: B',
+        '    type: number',
+        '---',
+        ''
+      ].join('\n')
+    )
+
+    await store.loadProjectByPath('Projects/Old/Old.md')
+
+    expect(settings.customFields.map((field) => [field.id, field.name])).toEqual([
+      ['cf-a', 'A'],
+      ['cf-b', 'B']
+    ])
+    expect(saved).toBe(1)
   })
 })
 
@@ -1208,19 +1135,6 @@ describe('ProjectStore project folders', () => {
     await store.deleteProject(project)
 
     expect(app.vault.getAbstractFileByPath('Projects/Doomed')).toBeNull()
-  })
-
-  it('spares a sub-project nested in the folder of a deleted project', async () => {
-    const { store, index, app } = newIndexedStore()
-    const parent = await store.createProject('Parent', 'Projects')
-    const child = await store.createProject('Child', 'Projects/Parent')
-    index.build()
-
-    await store.deleteProject(parent)
-
-    expect(app.vault.getAbstractFileByPath(parent.filePath)).toBeNull()
-    expect(app.vault.getAbstractFileByPath('Projects/Parent/_tasks')).toBeNull()
-    expect(app.vault.getAbstractFileByPath(child.filePath)).toBeInstanceOf(TFile)
   })
 
   it('renames the folder when the project note is renamed', async () => {
@@ -1280,7 +1194,7 @@ describe('ProjectStore project folders', () => {
 
     // The note keeps its own name; the folder it sits in is what moved.
     expect(app.vault.getAbstractFileByPath('Projects/Gamma/Alpha.md')).toBeInstanceOf(TFile)
-    expect(projectTaskFolder(app, 'Projects/Gamma/Alpha.md')).toBe('Projects/Gamma/_tasks')
+    expect(projectTaskFolder('Projects/Gamma/Alpha.md')).toBe('Projects/Gamma/_tasks')
     expect(app.vault.getAbstractFileByPath('Projects/Gamma/_tasks/card.md')).toBeInstanceOf(TFile)
   })
 
@@ -1308,7 +1222,7 @@ describe('ProjectStore project folders', () => {
     await app.fileManager.renameFile(fileAt(app, project.filePath), 'Work/Alpha.md')
     await flush()
 
-    expect(app.vault.getAbstractFileByPath('Work/Alpha_tasks/card.md')).toBeInstanceOf(TFile)
+    expect(app.vault.getAbstractFileByPath('Work/_tasks/card.md')).toBeInstanceOf(TFile)
   })
 })
 
@@ -1330,33 +1244,25 @@ describe('reference round-trip', () => {
     expect(reloadedOther.dependencies).toEqual([child.id])
   })
 
-  it('writes the full path when another project holds a task of the same name', async () => {
-    const { store, index, app } = newIndexedStore()
-    const alpha = await store.createProject('Alpha', 'Projects')
-    const beta = await store.createProject('Beta', 'Projects')
-    const alphaReview = await addNamed(store, alpha, 'Design review')
-    const betaReview = await addNamed(store, beta, 'Design review')
-    index.build()
-    await store.updateTask(beta, betaReview.id, { dependencies: [alphaReview.id] })
-
-    const content = await app.vault.cachedRead(fileAt(app, expectDefined(betaReview.filePath)))
-    expect(content).toContain(`dependencies: ["[[${expectDefined(alphaReview.filePath).replace(/\.md$/, '')}|`)
-  })
-
   it('reads a vault whose notes still hold bare ids', async () => {
     const { app, vault } = makeFakeApp({ liveMetadataCache: true })
     const typed = app as unknown as App
-    await vault.create('Projects/Legacy.md', '---\npm-project: true\nid: "p1"\ntitle: "Legacy"\ntaskIds: ["t1"]\n---\n')
     await vault.create(
-      'Projects/Legacy_tasks/parent.md',
+      'Projects/Legacy/Legacy.md',
+      '---\npm-project: true\nid: "p1"\ntitle: "Legacy"\ntaskIds: ["t1"]\n---\n'
+    )
+    await vault.create(
+      'Projects/Legacy/_tasks/parent.md',
       '---\npm-task: true\nprojectId: "p1"\nid: "t1"\ntitle: "Parent"\nsubtaskIds: ["t2"]\n---\n'
     )
     await vault.create(
-      'Projects/Legacy_tasks/child.md',
+      'Projects/Legacy/_tasks/child.md',
       '---\npm-task: true\nprojectId: "p1"\nparentId: "t1"\nid: "t2"\ntitle: "Child"\ndependencies: ["t1"]\n---\n'
     )
 
-    const project = expectDefined(await new ProjectStore(typed, () => SETTINGS).loadProjectByPath('Projects/Legacy.md'))
+    const project = expectDefined(
+      await new ProjectStore(typed, () => SETTINGS).loadProjectByPath('Projects/Legacy/Legacy.md')
+    )
 
     expect(project.tasks.map((t) => t.id)).toEqual(['t1'])
     expect(project.tasks[0].subtasks.map((t) => t.id)).toEqual(['t2'])

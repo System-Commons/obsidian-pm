@@ -29,7 +29,8 @@ import {
   updateTaskInTree,
   hydrateProjectFromFrontmatter,
   hydrateTaskFromFile,
-  hydrateTasks,
+  customFieldList,
+  type CustomFieldDef,
   FRONTMATTER_KEY,
   TASK_FRONTMATTER_KEY,
   parseFrontmatter,
@@ -54,7 +55,6 @@ import {
   moveTaskAttachmentFolder,
   projectFolderOf,
   projectTaskFolder,
-  resolveVaultLink,
   projectFilePath
 } from './vaultFs'
 import type { ImportNoteOptions, TaskSource } from './TaskSource'
@@ -65,25 +65,6 @@ type DirtyKind = 'fm' | 'full'
 function patchNeedsBodyRewrite(patch: Partial<Task>): boolean {
   // `subtasks` changes the parent's `## Subtasks` list, which lives in the body.
   return patch.description !== undefined || patch.archived !== undefined || patch.subtasks !== undefined
-}
-
-/** A basename of this exact length that prefixes the title's slug is kept as-is. */
-const LEGACY_SLUG_CAP = 40
-
-/** New tasks get the bare slug; an existing file stays put while its name still matches the title. */
-function resolveTaskPath(task: Task, folder: string, previousPath: string | undefined): string {
-  const desired = taskFilePath(task.title, folder)
-  if (!previousPath) return desired
-  const desiredBasename = desired.slice(desired.lastIndexOf('/') + 1).replace(/\.md$/, '')
-  const previousFolder = previousPath.slice(0, previousPath.lastIndexOf('/'))
-  const previousBasename = previousPath.slice(previousPath.lastIndexOf('/') + 1).replace(/\.md$/, '')
-  if (previousFolder !== folder) return desired
-  const legacyBasename = `${desiredBasename}-${task.id.slice(0, 8)}`
-  if (previousBasename === legacyBasename) return previousPath
-  if (previousBasename.length === LEGACY_SLUG_CAP && previousBasename === desiredBasename.slice(0, LEGACY_SLUG_CAP)) {
-    return previousPath
-  }
-  return desired
 }
 
 export class TaskFileNameConflictError extends Error {
@@ -102,10 +83,8 @@ function fileNameFromPath(path: string): string {
 }
 
 /**
- * All read/write operations against the vault. A project owns a folder:
- * `Projects/<name>/<name>.md` holds its metadata and `Projects/<name>/_tasks/<slug>.md`
- * holds one file per task. A project that has not been migrated yet still sits beside a
- * `Projects/<name>_tasks/` folder and reads the same way. The in-memory `Project.tasks`
+ * All read/write operations against the vault. The project note holds its metadata and
+ * the `_tasks/` folder beside it holds one file per task. The in-memory `Project.tasks`
  * tree is assembled from those files on load.
  */
 export class ProjectStore implements TaskSource {
@@ -140,17 +119,14 @@ export class ProjectStore implements TaskSource {
   constructor(
     private app: App,
     private getSettings: () => PMSettings = () => DEFAULT_SETTINGS,
-    /** Absent in tests and before the layout is ready; only cross-project lookups need it. */
-    private index?: VaultIndex
+    /** Absent in tests and before the layout is ready. */
+    private index?: VaultIndex,
+    /** Writes the settings back after a load folds something into them. */
+    private persistSettings?: () => Promise<void>
   ) {}
 
   configFor(project: Project): ResolvedProjectConfig {
-    const ancestors = this.index?.ancestorRefs(project.filePath) ?? []
-    return resolveProjectConfig(
-      project,
-      this.getSettings(),
-      ancestors.map((ref) => ref.customFields)
-    )
+    return resolveProjectConfig(project, this.getSettings())
   }
 
   private statusesFor(project: Project): StatusConfig[] {
@@ -164,9 +140,7 @@ export class ProjectStore implements TaskSource {
       link,
       dependency: (taskId) => {
         const local = findTaskById(project, taskId)
-        if (local?.filePath) return link(local.filePath, local.title)
-        const ref = this.index?.task(taskId)
-        return ref ? link(ref.path, ref.title) : null
+        return local?.filePath ? link(local.filePath, local.title) : null
       }
     }
   }
@@ -298,7 +272,7 @@ export class ProjectStore implements TaskSource {
     if (this.projectCache.size === 0) return
     if (this.peekSelfWrite(path)) return
     for (const key of this.projectCache.keys()) {
-      if (path === key || path.startsWith(projectTaskFolder(this.app, key) + '/')) {
+      if (path === key || path.startsWith(projectTaskFolder(key) + '/')) {
         const pending = this.reloadTimers.get(key)
         if (pending !== undefined) window.clearTimeout(pending)
         this.reloadTimers.set(
@@ -380,11 +354,10 @@ export class ProjectStore implements TaskSource {
 
   private async readProject(file: TFile): Promise<Project | null> {
     try {
-      // metadataCache lets us skip the disk read, but only for new-format projects;
-      // old-format ones need the body to migrate.
+      // metadataCache lets us skip the disk read; a hand-made note without a task list
+      // still needs its body read for the description.
       const cached = this.app.metadataCache.getFileCache(file)?.frontmatter
-      const cacheUsable =
-        cached && cached[FRONTMATTER_KEY] === true && !Array.isArray(cached.tasks) && Array.isArray(cached.taskIds)
+      const cacheUsable = cached && cached[FRONTMATTER_KEY] === true && Array.isArray(cached.taskIds)
 
       let frontmatter: Record<string, unknown> | null = null
       let body = ''
@@ -400,24 +373,14 @@ export class ProjectStore implements TaskSource {
       }
       if (!frontmatter || frontmatter[FRONTMATTER_KEY] !== true) return null
 
-      const hasEmbeddedTasks = Array.isArray(frontmatter.tasks) && frontmatter.tasks.length > 0
-
       const project = hydrateProjectFromFrontmatter(frontmatter, body, file.path, file.basename)
-      project.parentPath = resolveVaultLink(this.app, frontmatter.parent, file.path)
       if (bodyRead) this.hydratedBodies.add(project)
+      await this.adoptCustomFields(customFieldList(frontmatter.customFields))
 
-      if (hasEmbeddedTasks) {
-        project.tasks = hydrateTasks((frontmatter.tasks as unknown[]) ?? [])
-        rebuildTaskIndex(project)
-        // Old format: no per-task files on disk yet.
-        this.markAllDirty(project, 'full')
-      } else {
-        const taskFolder = projectTaskFolder(this.app, project.filePath)
-        const taskIds = Array.isArray(frontmatter.taskIds) ? (frontmatter.taskIds as string[]) : []
-        project.tasks = await this.loadTasksFromFolder(taskFolder, taskIds, project.filePath)
-        rebuildTaskIndex(project)
-        this.clearDirty(project)
-      }
+      const taskIds = Array.isArray(frontmatter.taskIds) ? (frontmatter.taskIds as string[]) : []
+      project.tasks = await this.loadTasksFromFolder(projectTaskFolder(project.filePath), taskIds, project.filePath)
+      rebuildTaskIndex(project)
+      this.clearDirty(project)
 
       return project
     } catch (e) {
@@ -425,6 +388,21 @@ export class ProjectStore implements TaskSource {
       new Notice(`Project Manager: Failed to load "${file.basename}". Check console for details.`)
       return null
     }
+  }
+
+  /**
+   * Custom fields an earlier version kept on the project note belong in the settings now.
+   * Folding them in keeps the columns and editors for values tasks already carry; the next
+   * save of the note scrubs the old key.
+   */
+  private async adoptCustomFields(fields: CustomFieldDef[]): Promise<void> {
+    if (!fields.length) return
+    const settings = this.getSettings()
+    const known = new Set(settings.customFields.map((field) => field.id))
+    const fresh = fields.filter((field) => !known.has(field.id))
+    if (!fresh.length) return
+    settings.customFields.push(...fresh)
+    await this.persistSettings?.()
   }
 
   private async loadTasksFromFolder(folderPath: string, topLevelRefs: string[], projectPath: string): Promise<Task[]> {
@@ -630,7 +608,7 @@ export class ProjectStore implements TaskSource {
 
       const own = projectFolderOf(this.app, project.filePath)
       if (own) await this.ensureFolder(own)
-      const taskFolder = projectTaskFolder(this.app, project.filePath)
+      const taskFolder = projectTaskFolder(project.filePath)
       await this.ensureFolder(taskFolder)
 
       await this.saveDirtyTasks(project, taskFolder, dirty)
@@ -692,7 +670,7 @@ export class ProjectStore implements TaskSource {
       if (task.archived) hasArchived = true
       // Two dirty tasks resolving to one file would race below into a generic
       // create error; catching it here keeps the typed one.
-      const path = normalizePath(resolveTaskPath(task, targetFolder, task.filePath))
+      const path = normalizePath(taskFilePath(task.title, targetFolder))
       if (targetPaths.has(path)) throw new TaskFileNameConflictError(path)
       targetPaths.add(path)
       jobs.push({ task, parentTask: parentId ? findTaskById(project, parentId) : null, folder: targetFolder, kind })
@@ -723,7 +701,7 @@ export class ProjectStore implements TaskSource {
     kind: DirtyKind
   ): Promise<void> {
     const previousPath = task.filePath
-    const filePath = normalizePath(resolveTaskPath(task, folder, previousPath))
+    const filePath = normalizePath(taskFilePath(task.title, folder))
     const renamed = previousPath !== undefined && previousPath !== filePath
 
     try {
@@ -806,9 +784,9 @@ export class ProjectStore implements TaskSource {
 
   /** Pre-flight check so callers can surface the conflict inline instead of on save. */
   findTaskFileConflict(project: Project, task: Task): TaskFileNameConflictError | null {
-    const baseFolder = projectTaskFolder(this.app, project.filePath)
+    const baseFolder = projectTaskFolder(project.filePath)
     const folder = task.archived ? normalizePath(baseFolder + '/Archive') : baseFolder
-    const desired = normalizePath(resolveTaskPath(task, folder, task.filePath))
+    const desired = normalizePath(taskFilePath(task.title, folder))
     if (desired === task.filePath) return null
     const existing = this.app.vault.getAbstractFileByPath(desired)
     return existing instanceof TFile ? new TaskFileNameConflictError(desired) : null
@@ -848,7 +826,7 @@ export class ProjectStore implements TaskSource {
       status: opts.status,
       priority: opts.priority
     })
-    const folder = projectTaskFolder(this.app, project.filePath)
+    const folder = projectTaskFolder(project.filePath)
     await this.ensureFolder(folder)
     const newFilePath = taskFilePath(task.title, folder)
     const newContent = serializeTask(
@@ -883,7 +861,7 @@ export class ProjectStore implements TaskSource {
     sources: Map<string, TFile>,
     handling: 'move' | 'copy'
   ): Promise<number> {
-    const baseFolder = projectTaskFolder(this.app, project.filePath)
+    const baseFolder = projectTaskFolder(project.filePath)
     await this.ensureFolder(baseFolder)
     let imported = 0
 
@@ -935,7 +913,7 @@ export class ProjectStore implements TaskSource {
     // Filenames come from the title slug within one flat folder, so a clone keeping
     // the source title would write over the original. Reserve a free "(copy)" title
     // for every node, checking the clones we're adding so siblings don't collide.
-    const baseFolder = projectTaskFolder(this.app, project.filePath)
+    const baseFolder = projectTaskFolder(project.filePath)
     const claimed = new Set<string>()
     const usedTitles = new Set(flattenTasks(project.tasks).map((f) => f.task.title))
     const claimName = (task: Task): void => {
@@ -1078,7 +1056,7 @@ export class ProjectStore implements TaskSource {
       }
     }
 
-    const folder = projectTaskFolder(this.app, project.filePath)
+    const folder = projectTaskFolder(project.filePath)
     for (const removed of oldSubtree) {
       if (liveIds.has(removed.id)) continue
       project.taskIndex.delete(removed.id)
@@ -1126,7 +1104,7 @@ export class ProjectStore implements TaskSource {
   }
 
   async deleteTasks(project: Project, taskIds: string[]): Promise<void> {
-    const folder = projectTaskFolder(this.app, project.filePath)
+    const folder = projectTaskFolder(project.filePath)
     const dirtyParents = new Set<string>()
     for (const id of taskIds) {
       const parentId = findParentId(project, id)
@@ -1165,7 +1143,7 @@ export class ProjectStore implements TaskSource {
     const parentId = findParentId(project, taskId)
     const task = findTaskById(project, taskId)
     if (task) {
-      await this.deleteTaskFiles(task, projectTaskFolder(this.app, project.filePath))
+      await this.deleteTaskFiles(task, projectTaskFolder(project.filePath))
       indexRemoveSubtree(project, task)
     }
     deleteTaskFromTree(project.tasks, taskId)
@@ -1198,7 +1176,7 @@ export class ProjectStore implements TaskSource {
 
   /** Keeps a pasted or dropped file with the task, not in the vault-wide default folder. */
   async saveTaskAttachment(project: Project, task: Task, fileName: string, data: ArrayBuffer): Promise<TFile> {
-    const taskPath = task.filePath ?? taskFilePath(task.title, projectTaskFolder(this.app, project.filePath))
+    const taskPath = task.filePath ?? taskFilePath(task.title, projectTaskFolder(project.filePath))
     const dir = normalizePath(`${this.taskFolder(taskPath)}/attachments`)
     this.markSelfWrite(this.taskFolder(taskPath))
     this.markSelfWrite(dir)
@@ -1225,7 +1203,7 @@ export class ProjectStore implements TaskSource {
    * other notes must not take that folder with it.
    */
   async deleteProject(project: Project): Promise<void> {
-    const tasks = this.app.vault.getAbstractFileByPath(projectTaskFolder(this.app, project.filePath))
+    const tasks = this.app.vault.getAbstractFileByPath(projectTaskFolder(project.filePath))
     if (tasks instanceof TFolder) {
       this.markSelfWrite(project.filePath)
       await this.deleteFolderRecursive(tasks)

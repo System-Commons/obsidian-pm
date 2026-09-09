@@ -11,7 +11,6 @@ import {
   isTaskNotesInstalled
 } from './integrations/tasknotes'
 import { renderPaletteFields, renderStatusDoneToggle } from './ui/PaletteListEditor'
-import { renderPersonPicker } from './ui/PersonPicker'
 import { generateToken } from './api/LocalApiServer'
 
 export type { PMSettings }
@@ -40,8 +39,8 @@ export class PMSettingTab extends PluginSettingTab {
         heading: 'General',
         items: [
           {
-            name: 'New project folder',
-            desc: 'Leave it empty to create them in the vault root.',
+            name: 'Project folder',
+            desc: 'Where the project note is created when the vault has none. Leave it empty for the vault root.',
             aliases: ['projects folder', 'location'],
             control: {
               type: 'folder',
@@ -50,11 +49,22 @@ export class PMSettingTab extends PluginSettingTab {
               placeholder: 'Vault root'
             }
           },
+          {
+            name: 'People folder',
+            desc: 'Where person notes are looked for and created. Leave it empty to search the whole vault.',
+            aliases: ['people', 'person notes', 'team'],
+            control: {
+              type: 'folder',
+              key: 'peopleFolder',
+              defaultValue: 'People',
+              placeholder: 'Whole vault'
+            }
+          },
           this.excludedFoldersPage(),
           {
-            name: 'Open projects in',
+            name: 'Open project in',
             desc: 'Tasks skips the overview page and goes straight to the table, timeline, or board.',
-            aliases: ['click', 'project list', 'overview'],
+            aliases: ['click', 'home', 'overview'],
             control: {
               type: 'dropdown',
               key: 'projectSurface',
@@ -258,7 +268,7 @@ export class PMSettingTab extends PluginSettingTab {
       {
         type: 'group',
         heading: 'Task fields',
-        items: [this.statusesPage(), this.prioritiesPage(), this.customFieldsPage(), this.teamMembersPage()]
+        items: [this.statusesPage(), this.prioritiesPage(), this.customFieldsPage()]
       },
       {
         type: 'group',
@@ -385,7 +395,7 @@ export class PMSettingTab extends PluginSettingTab {
     return {
       type: 'page',
       name: 'Custom fields',
-      desc: 'Extra task properties available across all projects.',
+      desc: 'Extra properties on every task.',
       displayValue: () => plural(this.plugin.settings.customFields.length, 'field', 'fields'),
       items: [
         {
@@ -553,51 +563,6 @@ export class PMSettingTab extends PluginSettingTab {
     }
   }
 
-  private teamMembersPage(): SettingDefinitionPage {
-    const members = this.plugin.settings.globalTeamMembers
-    return {
-      type: 'page',
-      name: 'Team members',
-      desc: 'People available as assignees across all projects.',
-      displayValue: () => plural(this.plugin.settings.globalTeamMembers.length, 'person', 'people'),
-      items: [
-        {
-          name: 'People folder',
-          desc: 'Where person notes are looked for and created. Leave it empty to search the whole vault.',
-          aliases: ['people', 'person notes'],
-          control: {
-            type: 'folder',
-            key: 'peopleFolder',
-            defaultValue: 'People',
-            placeholder: 'Whole vault'
-          }
-        },
-        {
-          name: 'Team members',
-          desc: 'Offered as assignees and members in every project.',
-          render: (setting: Setting) => {
-            renderPersonPicker({
-              container: setting.controlEl,
-              plugin: this.plugin,
-              sourcePath: '',
-              addLabel: 'Add member',
-              selected: () => this.plugin.settings.globalTeamMembers,
-              add: (value) => {
-                members.push(value)
-                this.persist()
-              },
-              remove: (value) => {
-                const index = members.indexOf(value)
-                if (index >= 0) members.splice(index, 1)
-                this.persist()
-              }
-            })
-          }
-        }
-      ]
-    }
-  }
-
   private persist(): void {
     void this.plugin.saveSettings()
     this.plugin.refreshViews()
@@ -643,8 +608,7 @@ export class PMSettingTab extends PluginSettingTab {
     if (configs.length === 0) return
     const fallback = configs[0]
     // Only worth loading the project when the index says a task still uses the deleted value.
-    const ref = this.plugin.projectRef()
-    if (!ref || !this.plugin.index.taskRefs(ref.path).some((task) => task[field] === deletedId)) return
+    if (!this.plugin.index.taskRefs().some((task) => task[field] === deletedId)) return
     const project = await this.plugin.project()
     if (!project) return
     const ids = flattenTasks(project.tasks)

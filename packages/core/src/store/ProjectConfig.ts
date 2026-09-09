@@ -1,48 +1,37 @@
-import type { CustomFieldDef, PMSettings, Project, ResolvedProjectConfig, Task } from '../types'
+import type { PMSettings, Project, ResolvedProjectConfig, Task } from '../types'
 import { flattenTasks } from './TaskTreeOps'
 
 const FALLBACK_COLOR = '#8a94a0'
 
 /**
- * The project's own overrides where defined, the global settings everywhere else. Values
- * tasks still use but neither list defines are appended, so nothing vanishes from a board
- * or picker. Read every palette through this, terminal-status checks included: an
- * overridden status carries its own `complete` flag.
- *
- * `ancestorFields` runs root-most first: custom fields resolve down that chain rather
- * than by a single override.
+ * The settings as the project sees them. Statuses and priorities its tasks still use but
+ * the settings no longer define are appended, so nothing vanishes from a board or picker.
+ * Read every palette through this, terminal-status checks included.
  */
-export function resolveProjectConfig(
-  project: Project,
-  settings: PMSettings,
-  ancestorFields: CustomFieldDef[][] = []
-): ResolvedProjectConfig {
-  const config = project.config
+export function resolveProjectConfig(project: Project, settings: PMSettings): ResolvedProjectConfig {
   return {
-    customFields: resolveCustomFields(project, settings, ancestorFields),
+    customFields: settings.customFields,
     statuses: withInUseExtras(
-      config?.statuses?.length ? config.statuses : settings.statuses,
       settings.statuses,
       project,
       (task) => task.status,
       (id) => ({ id, label: id, color: FALLBACK_COLOR, icon: '', complete: false })
     ),
     priorities: withInUseExtras(
-      config?.priorities?.length ? config.priorities : settings.priorities,
       settings.priorities,
       project,
       (task) => task.priority,
       (id) => ({ id, label: id, color: FALLBACK_COLOR, icon: '' })
     ),
-    priorityIcons: config?.priorityIcons ?? settings.priorityIcons,
-    defaultView: config?.defaultView ?? settings.defaultView,
-    autoSchedule: config?.autoSchedule ?? settings.autoSchedule,
-    pullForwardOnEarlyFinish: config?.pullForwardOnEarlyFinish ?? settings.pullForwardOnEarlyFinish,
-    autoArchiveDays: config?.autoArchiveDays ?? settings.autoArchiveDays,
-    showSubtreeConnections: config?.showSubtreeConnections ?? settings.showSubtreeConnections,
-    lineBorders: config?.lineBorders ?? settings.lineBorders,
-    kanbanShowSubtasks: config?.kanbanShowSubtasks ?? settings.kanbanShowSubtasks,
-    kanbanShowDescriptionPreview: config?.kanbanShowDescriptionPreview ?? settings.kanbanShowDescriptionPreview
+    priorityIcons: settings.priorityIcons,
+    defaultView: settings.defaultView,
+    autoSchedule: settings.autoSchedule,
+    pullForwardOnEarlyFinish: settings.pullForwardOnEarlyFinish,
+    autoArchiveDays: settings.autoArchiveDays,
+    showSubtreeConnections: settings.showSubtreeConnections,
+    lineBorders: settings.lineBorders,
+    kanbanShowSubtasks: settings.kanbanShowSubtasks,
+    kanbanShowDescriptionPreview: settings.kanbanShowDescriptionPreview
   }
 }
 
@@ -64,33 +53,20 @@ export function mergeById<T extends { id: string }>(lists: T[][]): T[] {
   return merged
 }
 
-function resolveCustomFields(
-  project: Project,
-  settings: PMSettings,
-  ancestorFields: CustomFieldDef[][]
-): CustomFieldDef[] {
-  const fields = mergeById([settings.customFields, ...ancestorFields, project.customFields])
-  const hidden = project.config?.hiddenCustomFields
-  if (!hidden?.length) return fields
-  const own = new Set(project.customFields.map((field) => field.id))
-  return fields.filter((field) => own.has(field.id) || !hidden.includes(field.id))
-}
-
 function withInUseExtras<T extends { id: string }>(
-  own: T[],
-  global: T[],
+  known: T[],
   project: Project,
   valueOf: (task: Task) => string,
   makeFallback: (id: string) => T
 ): T[] {
-  const known = new Set(own.map((entry) => entry.id))
+  const seen = new Set(known.map((entry) => entry.id))
   let extras: T[] | null = null
   for (const { task } of flattenTasks(project.tasks)) {
     const id = valueOf(task)
-    if (known.has(id)) continue
-    known.add(id)
+    if (seen.has(id)) continue
+    seen.add(id)
     extras ??= []
-    extras.push(global.find((entry) => entry.id === id) ?? makeFallback(id))
+    extras.push(makeFallback(id))
   }
-  return extras ? [...own, ...extras] : own
+  return extras ? [...known, ...extras] : known
 }

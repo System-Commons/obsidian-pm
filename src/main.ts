@@ -10,7 +10,8 @@ import {
   findTask,
   dedupePeople,
   displayName,
-  localApiPortFor
+  localApiPortFor,
+  stringList
 } from '@system-commons/core'
 import {
   matchPersonNotes,
@@ -57,6 +58,10 @@ export default class PMPlugin extends Plugin {
   private viewRefreshScheduled = false
   /** The prompt in flight, so two commands at once don't create two projects. */
   private creating: Promise<Project | null> | null = null
+  /** A team roster an earlier version kept in the settings, for the project created next. */
+  private legacyTeam: string[] = []
+  /** The ignored project notes last reported, so the notice shows once per change. */
+  private extraProjectsWarned = ''
   undoStack: Array<{ undo: () => Promise<void>; redo: () => Promise<void> }> = []
   redoStack: Array<{ undo: () => Promise<void>; redo: () => Promise<void> }> = []
 
@@ -91,8 +96,14 @@ export default class PMPlugin extends Plugin {
     this.index.register(this, () => {
       void this.startupSweep()
     })
-    this.store = new ProjectStore(this.app, () => this.settings, this.index)
+    this.store = new ProjectStore(
+      this.app,
+      () => this.settings,
+      this.index,
+      () => this.saveSettings()
+    )
     this.store.registerVaultSync(this)
+    this.register(this.index.onChange(() => this.warnAboutExtraProjects()))
     this.notifier = new Notifier(this)
     this.autoArchiver = new AutoArchiver(this)
     this.router = new PMViewRouter(this)
@@ -293,11 +304,21 @@ export default class PMPlugin extends Plugin {
 
   /** The vault's project note, as the index sees it. Null until one exists or the index has read the vault. */
   projectRef(): ProjectRef | null {
-    const refs = this.index.projectRefs()
-    if (!refs.length) return null
-    const folder = this.settings.projectsFolder ? `${this.settings.projectsFolder}/` : ''
-    const inFolder = refs.filter((ref) => folder && ref.path.startsWith(folder))
-    return (inFolder.length ? inFolder : refs).sort((a, b) => a.path.localeCompare(b.path))[0]
+    return this.index.project
+  }
+
+  /** One vault, one project: any other project note is ignored, and the user is told which. */
+  private warnAboutExtraProjects(): void {
+    const chosen = this.index.project
+    const extra = this.index.extraProjectPaths()
+    const key = extra.join('|')
+    if (key === this.extraProjectsWarned) return
+    this.extraProjectsWarned = key
+    if (!chosen || !extra.length) return
+    this.showNotice(
+      `Using the project at ${chosen.path} and ignoring ${extra.join(', ')}. Add their folders to Excluded folders in the settings to silence this.`,
+      10000
+    )
   }
 
   /** The vault's project, loaded. Null when the vault has none. */
@@ -336,7 +357,8 @@ export default class PMPlugin extends Plugin {
       return null
     }
     try {
-      const project = await this.store.createProject(title, folder)
+      const project = await this.store.createProject(title, folder, { teamMembers: [...this.legacyTeam] })
+      this.legacyTeam = []
       this.refreshViews()
       return project
     } catch (e) {
@@ -404,6 +426,7 @@ export default class PMPlugin extends Plugin {
     const saved = Object.fromEntries(
       Object.entries(raw).filter(([key]) => key in DEFAULT_SETTINGS)
     ) as Partial<PMSettings>
+    this.legacyTeam = stringList(raw['globalTeamMembers'])
     this.settings = Object.assign(structuredClone(DEFAULT_SETTINGS), saved)
     if (!saved.statuses?.length) this.settings.statuses = structuredClone(DEFAULT_SETTINGS.statuses)
     if (!saved.priorities?.length) this.settings.priorities = structuredClone(DEFAULT_SETTINGS.priorities)
@@ -437,16 +460,15 @@ export default class PMPlugin extends Plugin {
   private async archiveCompletedTasks(): Promise<void> {
     const project = await this.ensureProject()
     if (!project) return
-    const plans = await this.autoArchiver.plan([project.filePath], true)
-    const tasks = plans.reduce((sum, plan) => sum + plan.tasks, 0)
-    if (!tasks) {
+    const plan = await this.autoArchiver.plan(true)
+    if (!plan) {
       this.showNotice('No completed tasks are ready to archive.')
       return
     }
-    const ok = await confirmDialog(this.app, `Archive ${tasks} completed task(s)?`, 'Archive')
+    const ok = await confirmDialog(this.app, `Archive ${plan.tasks} completed task(s)?`, 'Archive')
     if (!ok) return
-    await this.autoArchiver.apply(plans)
-    this.showNotice(`Archived ${tasks} task(s).`)
+    await this.autoArchiver.apply(plan)
+    this.showNotice(`Archived ${plan.tasks} task(s).`)
   }
 
   /** The startup work that reads the index: the first due and archive sweeps. */
@@ -508,9 +530,14 @@ export default class PMPlugin extends Plugin {
    * or more than one, are left alone and reported.
    */
   private async linkPeopleToNotes(): Promise<void> {
+    const project = await this.project()
+    if (!project) {
+      this.showNotice('This vault has no project yet.')
+      return
+    }
     const plain: string[] = []
-    for (const ref of this.index.allTaskRefs()) plain.push(...ref.assignees)
-    for (const ref of this.index.projectRefs()) plain.push(...ref.teamMembers)
+    for (const ref of this.index.taskRefs()) plain.push(...ref.assignees)
+    plain.push(...project.teamMembers)
     const names = dedupePeople(plain.filter((value) => !value.trim().startsWith('[[')))
     if (names.length === 0) {
       this.showNotice('Every assignee already links to a note.')
@@ -543,34 +570,18 @@ export default class PMPlugin extends Plugin {
     )
     if (!ok) return
 
-    let tasksChanged = 0
-    let projectsChanged = 0
-    const byProject = new Map<string, string[]>()
-    for (const ref of this.index.allTaskRefs()) {
-      if (!ref.projectPath) continue
-      if (!ref.assignees.some((value) => linkFor.has(value.trim().toLowerCase()))) continue
-      const bucket = byProject.get(ref.projectPath)
-      if (bucket) bucket.push(ref.id)
-      else byProject.set(ref.projectPath, [ref.id])
-    }
-
-    for (const [path, taskIds] of byProject) {
-      const project = await this.store.loadProjectByPath(path)
-      if (!project) continue
+    const taskIds = flattenTasks(project.tasks)
+      .filter(({ task }) => task.assignees.some((value) => linkFor.has(value.trim().toLowerCase())))
+      .map(({ task }) => task.id)
+    if (taskIds.length) {
       await this.store.updateTasks(project, taskIds, (task) => ({ assignees: task.assignees.map(mapValue) }))
-      tasksChanged += taskIds.length
     }
-
-    for (const ref of this.index.projectRefs()) {
-      if (!ref.teamMembers.some((value) => linkFor.has(value.trim().toLowerCase()))) continue
-      const project = await this.store.loadProjectByPath(ref.path)
-      if (!project) continue
+    if (project.teamMembers.some((value) => linkFor.has(value.trim().toLowerCase()))) {
       await this.store.updateProject(project, { teamMembers: project.teamMembers.map(mapValue) })
-      projectsChanged++
     }
 
     this.refreshViews()
-    this.showNotice(`Linked ${tasksChanged} task(s) and ${projectsChanged} project(s).`)
+    this.showNotice(`Linked ${linkable.length} name(s) across ${taskIds.length} task(s).`)
   }
 
   /** Opens the tasks filtered to one person, the way the assignee filter would. */

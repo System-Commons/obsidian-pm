@@ -16,7 +16,7 @@ function newApi(): { api: LocalApi; store: ProjectStore; index: VaultIndex; refr
   const index = new VaultIndex(typed, () => SETTINGS)
   const store = new ProjectStore(typed, () => SETTINGS, index)
   let refreshed = 0
-  const projectRef = () => index.projectRefs()[0] ?? null
+  const projectRef = () => index.project
   const plugin = {
     app: typed,
     index,

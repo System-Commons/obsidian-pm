@@ -1,19 +1,15 @@
 import type { App, Plugin, TAbstractFile } from 'obsidian'
 import { TFile, normalizePath } from 'obsidian'
 import {
-  type CustomFieldDef,
   type PMSettings,
-  type StatusConfig,
-  today,
   reaches,
   FRONTMATTER_KEY,
   TASK_FRONTMATTER_KEY,
-  customFieldList,
   stringList,
   dedupePeople
 } from '@system-commons/core'
-import { projectPathForTaskPath, resolveVaultLink } from './vaultFs'
-import { isRefLink, refToId, refToPath } from './refs'
+import { projectTaskFolder, TASK_FOLDER_NAME } from './vaultFs'
+import { refToId } from './refs'
 import { personKeyer } from './people'
 
 export interface ProjectRef {
@@ -23,23 +19,11 @@ export interface ProjectRef {
   icon: string
   color: string
   teamMembers: string[]
-  /** The fields this project declares itself, before anything is inherited. */
-  customFields: CustomFieldDef[]
-  /** Where its `parent` link points, before cycles are taken out. Use `parentOf`. */
-  parentPath: string | undefined
-  /** Status ids the project's own palette defines. Null inherits the global palette. */
-  ownStatusIds: string[] | null
-  /** Which of those its own palette marks complete. Null inherits the global palette. */
-  completeStatusIds: string[] | null
-  /** Days before a completed task is archived. Null inherits the global setting. */
-  autoArchiveDays: number | null
 }
 
 export interface TaskRef {
   id: string
   path: string
-  projectId: string
-  projectPath: string | null
   title: string
   status: string
   priority: string
@@ -55,27 +39,15 @@ function str(raw: unknown, fallback = ''): string {
   return typeof raw === 'string' ? raw : fallback
 }
 
-/** A project note dropped inside a project's task storage is task storage, not a project. */
+/** A project note dropped inside task storage is task storage, not a project. */
 function insideTaskFolder(path: string): boolean {
   const parts = path.split('/')
   parts.pop()
-  return parts.some((segment) => segment.endsWith('_tasks'))
+  return parts.includes(TASK_FOLDER_NAME)
 }
 
-function projectConfigOf(frontmatter: Record<string, unknown>): Record<string, unknown> | null {
-  const config = frontmatter.config
-  return config && typeof config === 'object' ? (config as Record<string, unknown>) : null
-}
-
-function ownStatusesOf(frontmatter: Record<string, unknown>): Partial<StatusConfig>[] | null {
-  const statuses = projectConfigOf(frontmatter)?.statuses
-  if (!Array.isArray(statuses) || statuses.length === 0) return null
-  return (statuses as Partial<StatusConfig>[]).filter((entry) => typeof entry?.id === 'string')
-}
-
-function ownAutoArchiveDays(frontmatter: Record<string, unknown>): number | null {
-  const days = projectConfigOf(frontmatter)?.autoArchiveDays
-  return typeof days === 'number' && Number.isFinite(days) && days >= 0 ? Math.floor(days) : null
+function isArchivedPath(path: string): boolean {
+  return path.split('/').at(-2) === 'Archive'
 }
 
 /**
@@ -83,22 +55,15 @@ function ownAutoArchiveDays(frontmatter: Record<string, unknown>): number | null
  * kept current by its events. Nothing here reads a file body, so a whole-vault sweep
  * costs one pass over frontmatter Obsidian has already parsed.
  *
- * This is what makes project location irrelevant: discovery is by frontmatter, and a
- * task's owning project is resolved here rather than by pattern-matching paths at each
- * call site.
+ * The vault holds one project. Every project note found is a candidate; the one under
+ * the projects folder wins, then the first by path, and the rest are reported so the
+ * user can exclude their folders. A task belongs to the project when its note sits in
+ * the project's `_tasks/` folder, so ownership follows from paths alone.
  */
 export class VaultIndex {
-  private projects = new Map<string, ProjectRef>()
-  private projectPathById = new Map<string, string>()
+  private candidates = new Map<string, ProjectRef>()
   private tasks = new Map<string, TaskRef>()
-  private taskById = new Map<string, TaskRef>()
-  private tasksByProject = new Map<string, Set<string>>()
   private changeHandlers = new Set<() => void>()
-  private cachedTree: { parents: Map<string, string | null>; children: Map<string, string[]> } = {
-    parents: new Map(),
-    children: new Map()
-  }
-  private treeDirty = true
   private cachedDependents = new Map<string, string[]>()
   private dependentsDirty = true
   /** False until the first build, so a view can tell "none yet" from "none at all". */
@@ -111,15 +76,10 @@ export class VaultIndex {
 
   /** Call once, after the layout is ready. Safe to call again to recover from a bad state. */
   build(): void {
-    this.projects.clear()
-    this.projectPathById.clear()
+    this.candidates.clear()
     this.tasks.clear()
-    this.taskById.clear()
-    this.tasksByProject.clear()
-    this.treeDirty = true
     this.dependentsDirty = true
     for (const file of this.app.vault.getMarkdownFiles()) this.read(file)
-    this.resolveUnowned()
     this.ready = true
     this.emitChange()
   }
@@ -138,7 +98,6 @@ export class VaultIndex {
     plugin.registerEvent(
       this.app.metadataCache.on('changed', (file) => {
         this.read(file)
-        this.resolveUnowned()
         this.emitChange()
       })
     )
@@ -157,13 +116,11 @@ export class VaultIndex {
           return
         }
         if (this.rekeyFile(oldPath, file.path)) {
-          this.resolveUnowned()
           this.emitChange()
           return
         }
         this.read(file)
-        this.resolveUnowned()
-        if (this.tasks.has(file.path) || this.projects.has(file.path)) this.emitChange()
+        if (this.tasks.has(file.path) || this.candidates.has(file.path)) this.emitChange()
       })
     )
   }
@@ -174,138 +131,51 @@ export class VaultIndex {
     return () => this.changeHandlers.delete(handler)
   }
 
-  projectRefs(): ProjectRef[] {
-    return [...this.projects.values()].sort((a, b) => a.title.localeCompare(b.title))
+  /** The vault's project note. Null until one exists. */
+  get project(): ProjectRef | null {
+    if (this.candidates.size === 0) return null
+    const refs = [...this.candidates.values()].sort((a, b) => a.path.localeCompare(b.path))
+    const folder = this.getSettings().projectsFolder.trim()
+    const prefix = folder ? normalizePath(folder) + '/' : ''
+    return (prefix && refs.find((ref) => ref.path.startsWith(prefix))) || refs[0]
   }
 
-  /** Projects with no parent, plus any whose parent link is broken or circular. */
-  rootRefs(): ProjectRef[] {
-    const parents = this.tree().parents
-    return this.projectRefs().filter((ref) => !parents.get(ref.path))
+  /** Project notes the plugin found but does not use, for the user to exclude or remove. */
+  extraProjectPaths(): string[] {
+    const chosen = this.project?.path
+    return [...this.candidates.keys()].filter((path) => path !== chosen).sort()
   }
 
-  childRefs(path: string): ProjectRef[] {
-    const paths = this.tree().children.get(normalizePath(path))
-    if (!paths) return []
-    return paths
-      .map((child) => this.projects.get(child))
-      .filter((ref): ref is ProjectRef => ref !== undefined)
-      .sort((a, b) => a.title.localeCompare(b.title))
+  /** The project's task notes, archived ones included, in no particular order. */
+  taskRefs(): TaskRef[] {
+    const project = this.project
+    if (!project) return []
+    const prefix = projectTaskFolder(project.path) + '/'
+    return [...this.tasks.values()].filter((ref) => ref.path.startsWith(prefix))
   }
 
-  /** The effective parent: a link that resolves to a live project without closing a cycle. */
-  parentOf(path: string): ProjectRef | null {
-    const parent = this.tree().parents.get(normalizePath(path))
-    return parent ? (this.projects.get(parent) ?? null) : null
+  task(taskId: string): TaskRef | null {
+    return this.taskRefs().find((ref) => ref.id === taskId) ?? null
   }
 
-  /** Every ancestor, root-most first. */
-  ancestorRefs(path: string): ProjectRef[] {
-    const out: ProjectRef[] = []
-    for (let parent = this.parentOf(path); parent; parent = this.parentOf(parent.path)) out.unshift(parent)
-    return out
+  /** Status ids that count as finished. */
+  completeStatuses(): Set<string> {
+    return new Set(
+      this.getSettings()
+        .statuses.filter((s) => s.complete)
+        .map((s) => s.id)
+    )
   }
 
-  /** Every descendant, depth first. */
-  descendantRefs(path: string): ProjectRef[] {
-    const out: ProjectRef[] = []
-    const walk = (from: string): void => {
-      for (const child of this.childRefs(from)) {
-        out.push(child)
-        walk(child.path)
-      }
-    }
-    walk(normalizePath(path))
-    return out
-  }
-
-  /** Tasks past due and the last date anything is due, without loading the project. */
-  dueSummary(ref: ProjectRef): { overdue: number; latestDue: string } {
-    const complete = this.completeStatuses(ref)
-    const now = today().toString()
-    let overdue = 0
-    let latestDue = ''
-    for (const task of this.countableTasks(ref)) {
-      if (!task.due) continue
-      if (task.due > latestDue) latestDue = task.due
-      if (task.due < now && !complete.has(task.status)) overdue++
-    }
-    return { overdue, latestDue }
-  }
-
-  /** The same across a project and everything under it. */
-  rollupDueSummary(ref: ProjectRef): { overdue: number; latestDue: string } {
-    const totals = this.dueSummary(ref)
-    for (const descendant of this.descendantRefs(ref.path)) {
-      const summary = this.dueSummary(descendant)
-      totals.overdue += summary.overdue
-      if (summary.latestDue > totals.latestDue) totals.latestDue = summary.latestDue
-    }
-    return totals
-  }
-
-  /** Counts for a project and everything under it, for a program or portfolio card. */
-  rollupCounts(ref: ProjectRef): { total: number; done: number } {
-    const totals = this.counts(ref)
-    for (const descendant of this.descendantRefs(ref.path)) {
-      const counts = this.counts(descendant)
-      totals.total += counts.total
-      totals.done += counts.done
-    }
-    return totals
-  }
-
-  projectRef(path: string): ProjectRef | null {
-    return this.projects.get(normalizePath(path)) ?? null
-  }
-
-  projectPaths(): string[] {
-    return this.projectRefs().map((ref) => ref.path)
-  }
-
-  taskRefs(projectPath: string): TaskRef[] {
-    const paths = this.tasksByProject.get(normalizePath(projectPath))
-    if (!paths) return []
-    const refs: TaskRef[] = []
-    for (const path of paths) {
-      const ref = this.tasks.get(path)
-      if (ref) refs.push(ref)
-    }
-    return refs
-  }
-
-  /**
-   * Status ids that count as finished for a project. A project palette overrides the
-   * global one entry by entry rather than wholesale, so a status it does not redefine
-   * keeps the global palette's complete flag, matching what the project's views resolve.
-   */
-  completeStatuses(ref: ProjectRef): Set<string> {
-    const global = this.getSettings()
-      .statuses.filter((s) => s.complete)
-      .map((s) => s.id)
-    if (!ref.completeStatusIds) return new Set(global)
-    const own = new Set(ref.ownStatusIds)
-    return new Set([...ref.completeStatusIds, ...global.filter((id) => !own.has(id))])
-  }
-
-  /** One task per id, archived ones left out, so counts match what the project's views show. */
-  private countableTasks(ref: ProjectRef): TaskRef[] {
+  /** Task totals without loading the project: one per id, archived ones left out. */
+  counts(): { total: number; done: number } {
+    const complete = this.completeStatuses()
     const seen = new Set<string>()
-    const tasks: TaskRef[] = []
-    for (const task of this.taskRefs(ref.path)) {
-      if (task.archived || seen.has(task.id)) continue
-      seen.add(task.id)
-      tasks.push(task)
-    }
-    return tasks
-  }
-
-  /** Task totals for a project row, without loading the project. */
-  counts(ref: ProjectRef): { total: number; done: number } {
-    const complete = this.completeStatuses(ref)
     let total = 0
     let done = 0
-    for (const task of this.countableTasks(ref)) {
+    for (const task of this.taskRefs()) {
+      if (task.archived || seen.has(task.id)) continue
+      seen.add(task.id)
       total++
       if (complete.has(task.status)) done++
     }
@@ -313,52 +183,37 @@ export class VaultIndex {
   }
 
   /**
-   * A task anywhere in the vault. This is what lets a dependency point outside its own
-   * project: ids are resolved here rather than inside one project's tree.
-   */
-  task(taskId: string): TaskRef | null {
-    return this.taskById.get(taskId) ?? null
-  }
-
-  allTaskRefs(): TaskRef[] {
-    return [...this.tasks.values()]
-  }
-
-  /**
-   * Tasks anywhere in the vault assigned to one person, keyed the way the assignee filter
-   * keys them, so a person written as a link, an alias, or plain text all count once.
+   * Tasks assigned to one person, keyed the way the assignee filter keys them, so a
+   * person written as a link, an alias, or plain text all count once.
    */
   tasksForPerson(person: string): TaskRef[] {
     const keyOf = personKeyer(this.app)
     const wanted = keyOf(person)
-    return [...this.tasks.values()].filter((ref) => ref.assignees.some((a) => keyOf(a) === wanted))
+    return this.taskRefs().filter((ref) => ref.assignees.some((a) => keyOf(a) === wanted))
   }
 
-  /** Everyone named by a task anywhere in the vault, one entry per person. */
+  /** Everyone named by a task, one entry per person. */
   allAssignees(): string[] {
     const values: string[] = []
-    for (const ref of this.tasks.values()) values.push(...ref.assignees)
+    for (const ref of this.taskRefs()) values.push(...ref.assignees)
     return dedupePeople(values, personKeyer(this.app))
   }
 
-  /**
-   * Would making `fromId` depend on `toId` close a cycle, following dependencies wherever
-   * they lead? The graph spans projects, so a cycle can too.
-   */
+  /** Would making `fromId` depend on `toId` close a cycle, following dependencies wherever they lead? */
   wouldCreateCycle(fromId: string, toId: string): boolean {
     return reaches(this.dependentsMap(), fromId, toId)
   }
 
-  /** Tasks anywhere in the vault that list this one as a dependency. */
+  /** Tasks that list this one as a dependency. */
   dependents(taskId: string): TaskRef[] {
-    return [...this.tasks.values()].filter((ref) => ref.dependencies.includes(taskId))
+    return this.taskRefs().filter((ref) => ref.dependencies.includes(taskId))
   }
 
-  /** Predecessor id -> ids of everything waiting on it, across every project. */
+  /** Predecessor id -> ids of everything waiting on it. */
   dependentsMap(): Map<string, string[]> {
     if (!this.dependentsDirty) return this.cachedDependents
     const map = new Map<string, string[]>()
-    for (const ref of this.tasks.values()) {
+    for (const ref of this.taskRefs()) {
       for (const depId of ref.dependencies) {
         const list = map.get(depId)
         if (list) list.push(ref.id)
@@ -368,11 +223,6 @@ export class VaultIndex {
     this.cachedDependents = map
     this.dependentsDirty = false
     return map
-  }
-
-  /** The project owning a task note, by location first and by its `projectId` when it moved. */
-  projectPathForTask(taskPath: string): string | null {
-    return this.tasks.get(normalizePath(taskPath))?.projectPath ?? this.resolveOwner(normalizePath(taskPath), '')
   }
 
   private read(file: TFile): void {
@@ -390,32 +240,21 @@ export class VaultIndex {
   }
 
   private addProject(path: string, file: TFile, frontmatter: Record<string, unknown>): void {
-    const own = ownStatusesOf(frontmatter)
-    const ref: ProjectRef = {
+    this.candidates.set(path, {
       path,
       id: str(frontmatter.id, file.basename),
       title: str(frontmatter.title, file.basename),
       icon: str(frontmatter.icon, '\u{1F4CB}'),
       color: str(frontmatter.color, '#8b72be'),
-      teamMembers: stringList(frontmatter.teamMembers),
-      customFields: customFieldList(frontmatter.customFields),
-      parentPath: resolveVaultLink(this.app, frontmatter.parent, path),
-      ownStatusIds: own ? own.map((entry) => entry.id as string) : null,
-      completeStatusIds: own ? own.filter((entry) => entry.complete === true).map((entry) => entry.id as string) : null,
-      autoArchiveDays: ownAutoArchiveDays(frontmatter)
-    }
-    this.projects.set(path, ref)
-    this.projectPathById.set(ref.id, path)
-    this.treeDirty = true
+      teamMembers: stringList(frontmatter.teamMembers)
+    })
+    this.dependentsDirty = true
   }
 
   private addTask(path: string, frontmatter: Record<string, unknown>): void {
-    const projectId = str(frontmatter.projectId)
-    const ref: TaskRef = {
+    this.tasks.set(path, {
       id: str(frontmatter.id, path),
       path,
-      projectId,
-      projectPath: this.resolveOwner(path, projectId),
       title: str(frontmatter.title, 'Untitled'),
       status: str(frontmatter.status, 'todo'),
       priority: str(frontmatter.priority, 'medium'),
@@ -424,73 +263,30 @@ export class VaultIndex {
       completed: str(frontmatter.completed),
       dependencies: stringList(frontmatter.dependencies).map((raw) => refToId(this.app, raw, path)),
       assignees: stringList(frontmatter.assignees),
-      archived: path.split('/').at(-2) === 'Archive'
-    }
-    this.tasks.set(path, ref)
-    this.taskById.set(ref.id, ref)
+      archived: isArchivedPath(path)
+    })
     this.dependentsDirty = true
-    this.own(ref)
-  }
-
-  /**
-   * Location wins: a task note lives in its project's `_tasks/` folder, which resolves
-   * whatever order the files are indexed in. `projectId` covers a note moved out of it.
-   */
-  private resolveOwner(taskPath: string, projectRef: string): string | null {
-    const byLocation = projectPathForTaskPath(taskPath)
-    if (byLocation) return byLocation
-    if (!projectRef) return null
-    return isRefLink(projectRef)
-      ? refToPath(this.app, projectRef, taskPath)
-      : (this.projectPathById.get(projectRef) ?? null)
-  }
-
-  /** A task indexed before its project can only be placed once that project shows up. */
-  private resolveUnowned(): void {
-    for (const ref of this.tasks.values()) {
-      if (ref.projectPath !== null) continue
-      const owner = this.resolveOwner(ref.path, ref.projectId)
-      if (!owner) continue
-      ref.projectPath = owner
-      this.own(ref)
-    }
-  }
-
-  private own(ref: TaskRef): void {
-    if (!ref.projectPath) return
-    let bucket = this.tasksByProject.get(ref.projectPath)
-    if (!bucket) {
-      bucket = new Set()
-      this.tasksByProject.set(ref.projectPath, bucket)
-    }
-    bucket.add(ref.path)
   }
 
   /** Moves an indexed note to its new path. False when the path held nothing indexed. */
   private rekeyFile(oldPath: string, newPath: string): boolean {
     const from = normalizePath(oldPath)
     const to = normalizePath(newPath)
-    const project = this.projects.get(from)
+    const project = this.candidates.get(from)
     const task = this.tasks.get(from)
     if (!project && !task) return false
     this.forget(from)
     if (this.isExcluded(to)) return true
     if (project) {
       project.path = to
-      this.projects.set(to, project)
-      this.projectPathById.set(project.id, to)
-      this.treeDirty = true
-      this.reownTasks(from, to)
-      return true
+      this.candidates.set(to, project)
     }
     if (task) {
       task.path = to
-      task.projectPath = this.resolveOwner(to, task.projectId)
-      task.archived = to.split('/').at(-2) === 'Archive'
+      task.archived = isArchivedPath(to)
       this.tasks.set(to, task)
-      this.taskById.set(task.id, task)
-      this.own(task)
     }
+    this.dependentsDirty = true
     return true
   }
 
@@ -498,100 +294,30 @@ export class VaultIndex {
   private rekeyFolder(oldPath: string, newPath: string): boolean {
     const from = normalizePath(oldPath) + '/'
     const to = normalizePath(newPath) + '/'
-    const projects = [...this.projects.values()].filter((ref) => ref.path.startsWith(from))
+    const projects = [...this.candidates.values()].filter((ref) => ref.path.startsWith(from))
     const tasks = [...this.tasks.values()].filter((ref) => ref.path.startsWith(from))
     if (!projects.length && !tasks.length) return false
-    // Projects first: a task's owner is resolved from the folder it now sits in.
     for (const ref of projects) {
-      this.forget(ref.path)
+      this.candidates.delete(ref.path)
       ref.path = to + ref.path.slice(from.length)
-      this.projects.set(ref.path, ref)
-      this.projectPathById.set(ref.id, ref.path)
-      this.treeDirty = true
+      this.candidates.set(ref.path, ref)
     }
     for (const ref of tasks) {
-      this.forget(ref.path)
+      this.tasks.delete(ref.path)
       ref.path = to + ref.path.slice(from.length)
-      ref.projectPath = this.resolveOwner(ref.path, ref.projectId)
-      ref.archived = ref.path.split('/').at(-2) === 'Archive'
+      ref.archived = isArchivedPath(ref.path)
       this.tasks.set(ref.path, ref)
-      this.taskById.set(ref.id, ref)
-      this.own(ref)
     }
-    return true
-  }
-
-  /**
-   * Task notes keep their own paths when their project note is renamed, so ownership has
-   * to follow the project rather than wait for each of them to be read again.
-   */
-  private reownTasks(oldProjectPath: string, newProjectPath: string): boolean {
-    const from = normalizePath(oldProjectPath)
-    const to = normalizePath(newProjectPath)
-    const bucket = this.tasksByProject.get(from)
-    if (!bucket || !this.projects.has(to)) return false
-    this.tasksByProject.delete(from)
-    for (const taskPath of bucket) {
-      const ref = this.tasks.get(taskPath)
-      if (ref) ref.projectPath = to
-    }
-    this.tasksByProject.set(to, bucket)
+    this.dependentsDirty = true
     return true
   }
 
   /** Drops whatever was indexed at a path. Reports whether anything was. */
   private forget(path: string): boolean {
     const normalized = normalizePath(path)
-    const task = this.tasks.get(normalized)
-    if (task) {
-      this.tasks.delete(normalized)
-      if (this.taskById.get(task.id) === task) this.taskById.delete(task.id)
-      if (task.projectPath) this.tasksByProject.get(task.projectPath)?.delete(normalized)
-      this.dependentsDirty = true
-      return true
-    }
-    const project = this.projects.get(normalized)
-    if (project) {
-      this.projects.delete(normalized)
-      if (this.projectPathById.get(project.id) === normalized) this.projectPathById.delete(project.id)
-      this.treeDirty = true
-      return true
-    }
-    return false
-  }
-
-  /**
-   * Parent and child edges, with cycles taken out. A project whose ancestors lead back to
-   * it is treated as a root, so a bad link costs the tree one edge rather than hanging it.
-   */
-  private tree(): { parents: Map<string, string | null>; children: Map<string, string[]> } {
-    if (!this.treeDirty) return this.cachedTree
-    const parents = new Map<string, string | null>()
-    for (const [path, ref] of this.projects) {
-      const parent = ref.parentPath ? normalizePath(ref.parentPath) : null
-      parents.set(path, parent && parent !== path && this.projects.has(parent) ? parent : null)
-    }
-    for (const path of parents.keys()) {
-      const seen = new Set([path])
-      for (let current = parents.get(path); current; current = parents.get(current)) {
-        if (seen.has(current)) {
-          console.error(`[PM] Circular parent link on project ${path}; treating it as a root.`)
-          parents.set(path, null)
-          break
-        }
-        seen.add(current)
-      }
-    }
-    const children = new Map<string, string[]>()
-    for (const [path, parent] of parents) {
-      if (!parent) continue
-      const siblings = children.get(parent)
-      if (siblings) siblings.push(path)
-      else children.set(parent, [path])
-    }
-    this.cachedTree = { parents, children }
-    this.treeDirty = false
-    return this.cachedTree
+    const dropped = this.tasks.delete(normalized) || this.candidates.delete(normalized)
+    if (dropped) this.dependentsDirty = true
+    return dropped
   }
 
   private isExcluded(path: string): boolean {

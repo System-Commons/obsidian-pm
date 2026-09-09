@@ -70,7 +70,3 @@ export function appendYaml(lines: string[], obj: Record<string, unknown>, indent
     }
   }
 }
-
-export function isOldFormat(frontmatter: Record<string, unknown>): boolean {
-  return Array.isArray(frontmatter.tasks) && frontmatter.tasks.length > 0 && !Array.isArray(frontmatter.taskIds)
-}

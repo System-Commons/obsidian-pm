@@ -35,6 +35,10 @@ describe('AutoArchiver', () => {
       index,
       store,
       settings,
+      project: async () => {
+        const ref = index.project
+        return ref ? store.loadProjectByPath(ref.path) : null
+      },
       showNotice: (msg: string) => notices.push(msg),
       saveSettings: () => Promise.resolve()
     } as unknown as PMPlugin
@@ -54,7 +58,7 @@ describe('AutoArchiver', () => {
     return findTask(project.tasks, task.id)?.archived === true
   }
 
-  it('does nothing when no project has a window', async () => {
+  it('does nothing while the window is off', async () => {
     const project = await store.createProject('Roadmap', 'Projects')
     const old = await addTask(project, 'Old', done(daysAgo(30)))
     index.build()
@@ -80,7 +84,7 @@ describe('AutoArchiver', () => {
     expect(archived(project, fresh)).toBe(false)
     expect(archived(project, open)).toBe(false)
     expect(settings.lastAutoArchiveDate).toBe(today().toString())
-    expect(notices).toEqual(['Archived 1 completed task(s) in 1 project(s).'])
+    expect(notices).toEqual(['Archived 1 completed task(s).'])
   })
 
   it('never archives a completed task carrying no completion date', async () => {
@@ -92,18 +96,6 @@ describe('AutoArchiver', () => {
     await archiver.check()
 
     expect(archived(project, undated)).toBe(false)
-  })
-
-  it("follows a project's own window over the global one", async () => {
-    settings.autoArchiveDays = 30
-    const project = await store.createProject('Roadmap', 'Projects')
-    const task = await addTask(project, 'Old', done(daysAgo(10)))
-    await store.updateProject(project, { config: { autoArchiveDays: 7 } })
-    index.build()
-
-    await archiver.check()
-
-    expect(archived(project, task)).toBe(true)
   })
 
   it('runs once a day', async () => {
@@ -118,27 +110,33 @@ describe('AutoArchiver', () => {
     expect(archived(project, old)).toBe(false)
   })
 
-  it('leaves a task another project still depends on', async () => {
+  it('leaves a task something live still depends on', async () => {
     settings.autoArchiveDays = 7
-    const library = await store.createProject('Library', 'Projects')
-    const consumer = await store.createProject('App', 'Projects')
-    const api = await addTask(library, 'API', done(daysAgo(30)))
-    await addTask(consumer, 'Client', { dependencies: [api.id] })
+    const project = await store.createProject('Roadmap', 'Projects')
+    const api = await addTask(project, 'API', done(daysAgo(30)))
+    await addTask(project, 'Client', { dependencies: [api.id] })
     index.build()
 
     await archiver.check()
 
-    expect(archived(library, api)).toBe(false)
+    expect(archived(project, api)).toBe(false)
   })
 
-  it('takes everything completed when the command runs against a project with no window', async () => {
+  it('takes everything completed when the command runs with the window off', async () => {
     const project = await store.createProject('Roadmap', 'Projects')
     const todayDone = await addTask(project, 'Just finished', done(today().toString()))
     index.build()
 
-    const plans = await archiver.plan([project.filePath], true)
-    await archiver.apply(plans)
+    const plan = await archiver.plan(true)
+    expect(plan?.tasks).toBe(1)
+    await archiver.apply(plan)
 
     expect(archived(project, todayDone)).toBe(true)
+  })
+
+  it('plans nothing when the vault has no project', async () => {
+    index.build()
+    expect(await archiver.plan(true)).toBeNull()
+    expect(await archiver.apply(null)).toBe(0)
   })
 })

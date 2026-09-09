@@ -8,7 +8,7 @@ export function projectFilePath(projectTitle: string, folder: string): string {
   return normalizePath(`${folder}/${name}/${name}.md`)
 }
 
-/** The task storage folder inside a project's own folder. */
+/** The task storage folder beside the project note. */
 export const TASK_FOLDER_NAME = '_tasks'
 
 /** The folder holding a path, empty for anything at the vault root. */
@@ -24,8 +24,8 @@ function nameOf(path: string): string {
 /**
  * The folder a project owns, holding its note and its `_tasks/`. A project note named
  * after its folder owns it; so does one whose folder nobody else claims and which already
- * holds task storage, which is what a note renamed on its own looks like. Null for a
- * legacy project sitting beside a `<name>_tasks` folder.
+ * holds task storage, which is what a note renamed on its own looks like. Null when the
+ * note sits in a folder that is not its own.
  */
 export function projectFolderOf(app: App, projectPath: string): string | null {
   const dir = folderOf(projectPath)
@@ -36,11 +36,10 @@ export function projectFolderOf(app: App, projectPath: string): string | null {
   return app.vault.getAbstractFileByPath(`${dir}/${TASK_FOLDER_NAME}`) instanceof TFolder ? dir : null
 }
 
-/** Where a project's task notes live, in either layout. */
-export function projectTaskFolder(app: App, projectPath: string): string {
-  const own = projectFolderOf(app, projectPath)
-  if (own) return normalizePath(`${own}/${TASK_FOLDER_NAME}`)
-  return normalizePath(projectPath.replace(/\.md$/, '_tasks'))
+/** Where the project's task notes live: `_tasks/` beside the note, wherever the note sits. */
+export function projectTaskFolder(projectPath: string): string {
+  const dir = folderOf(projectPath)
+  return normalizePath(dir ? `${dir}/${TASK_FOLDER_NAME}` : TASK_FOLDER_NAME)
 }
 
 /**
@@ -64,8 +63,8 @@ export async function moveTaskAttachmentFolder(
 
 /**
  * Keeps a renamed project note attached to its tasks. A note renamed inside the folder it
- * owns takes the folder with it, so the pair keeps matching; a note moved anywhere else
- * takes its task folder along as a sibling. Returns where the note ended up.
+ * owns takes the folder with it, so the pair keeps matching; a note moved to another folder
+ * takes its `_tasks/` along. Returns where the note ended up.
  */
 export async function keepProjectStorageWithNote(
   app: App,
@@ -74,23 +73,19 @@ export async function keepProjectStorageWithNote(
   markSelfWrite: (path: string) => void
 ): Promise<string> {
   const oldDir = folderOf(oldProjectPath)
-  const stayed = folderOf(newProjectPath) === oldDir
-  if (oldDir && stayed) {
-    if (nameOf(oldDir) === nameOf(oldProjectPath)) {
-      const target = normalizePath(`${folderOf(oldDir)}/${nameOf(newProjectPath)}`)
-      const folder = app.vault.getAbstractFileByPath(oldDir)
-      if (!(folder instanceof TFolder) || app.vault.getAbstractFileByPath(target)) return newProjectPath
-      markSelfWrite(oldDir)
-      markSelfWrite(target)
-      await app.vault.rename(folder, target)
-      return normalizePath(`${target}/${nameOf(newProjectPath)}.md`)
-    }
-    // Storage already sits in the folder the note stayed in; the new name changes nothing.
-    if (app.vault.getAbstractFileByPath(`${oldDir}/${TASK_FOLDER_NAME}`) instanceof TFolder) return newProjectPath
+  if (folderOf(newProjectPath) === oldDir) {
+    if (!oldDir || nameOf(oldDir) !== nameOf(oldProjectPath)) return newProjectPath
+    const target = normalizePath(`${folderOf(oldDir)}/${nameOf(newProjectPath)}`)
+    const folder = app.vault.getAbstractFileByPath(oldDir)
+    if (!(folder instanceof TFolder) || app.vault.getAbstractFileByPath(target)) return newProjectPath
+    markSelfWrite(oldDir)
+    markSelfWrite(target)
+    await app.vault.rename(folder, target)
+    return normalizePath(`${target}/${nameOf(newProjectPath)}.md`)
   }
 
-  const from = normalizePath(projectTaskFolder(app, oldProjectPath))
-  const to = normalizePath(newProjectPath.replace(/\.md$/, '') + '_tasks')
+  const from = projectTaskFolder(oldProjectPath)
+  const to = projectTaskFolder(newProjectPath)
   const folder = app.vault.getAbstractFileByPath(from)
   if (from !== to && folder instanceof TFolder && !app.vault.getAbstractFileByPath(to)) {
     markSelfWrite(from)
@@ -98,25 +93,6 @@ export async function keepProjectStorageWithNote(
     await app.vault.rename(folder, to)
   }
   return newProjectPath
-}
-
-/**
- * The project a task note belongs to, from its path alone: tasks live in the project
- * folder's `_tasks/`, or beside a legacy project in `<project>_tasks/`, archived ones a
- * level deeper in `Archive/`. Null for any path outside that layout.
- */
-export function projectPathForTaskPath(taskPath: string): string | null {
-  const parts = normalizePath(taskPath).split('/')
-  parts.pop()
-  if (parts[parts.length - 1] === 'Archive') parts.pop()
-  if (parts[parts.length - 1] === TASK_FOLDER_NAME) {
-    parts.pop()
-    const folder = parts.join('/')
-    return folder ? `${folder}/${parts[parts.length - 1]}.md` : null
-  }
-  const folder = parts.join('/')
-  if (!folder.endsWith('_tasks')) return null
-  return folder.slice(0, -'_tasks'.length) + '.md'
 }
 
 /**
