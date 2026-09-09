@@ -18,13 +18,13 @@ importers:
       '@2bad/tsconfig':
         specifier: 4.0.0
         version: 4.0.0(typescript@6.0.3)
-      '@dotpm/api':
+      '@system-commons/api':
         specifier: workspace:*
         version: link:packages/api
-      '@dotpm/core':
+      '@system-commons/core':
         specifier: workspace:*
         version: link:packages/core
-      '@dotpm/ui':
+      '@system-commons/ui':
         specifier: workspace:*
         version: link:packages/ui
       '@types/node':
@@ -75,7 +75,7 @@ importers:
 
   packages/api:
     dependencies:
-      '@dotpm/core':
+      '@system-commons/core':
         specifier: workspace:*
         version: link:../core
 
@@ -87,19 +87,19 @@ importers:
 
   packages/ui:
     dependencies:
-      '@dotpm/core':
+      '@system-commons/core':
         specifier: workspace:*
         version: link:../core
 
   packages/viewer:
     dependencies:
-      '@dotpm/api':
+      '@system-commons/api':
         specifier: workspace:*
         version: link:../api
-      '@dotpm/core':
+      '@system-commons/core':
         specifier: workspace:*
         version: link:../core
-      '@dotpm/ui':
+      '@system-commons/ui':
         specifier: workspace:*
         version: link:../ui
 

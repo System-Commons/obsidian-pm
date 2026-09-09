@@ -1,4 +1,4 @@
-import { type Task, formatDateShort } from '@dotpm/core'
+import { type Task, formatDateShort } from '@system-commons/core'
 import { AvatarStack, type AvatarPerson } from '../primitives/AvatarStack'
 import { Chip } from '../primitives/Chip'
 import { ProgressBar } from '../primitives/ProgressBar'

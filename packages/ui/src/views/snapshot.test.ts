@@ -6,7 +6,7 @@ import {
   makeDefaultFilter,
   makeTask,
   type ResolvedProjectConfig
-} from '@dotpm/core'
+} from '@system-commons/core'
 import type { ViewModel } from './model'
 import { renderSnapshotGantt } from './snapshotGantt'
 import { renderSnapshotKanban } from './snapshotKanban'

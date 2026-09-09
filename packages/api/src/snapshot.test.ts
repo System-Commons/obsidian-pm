@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { makeProject, makeTask } from '@dotpm/core'
+import { makeProject, makeTask } from '@system-commons/core'
 import { taskResources, tasksFromResources } from './resources'
 import { isSnapshot, SNAPSHOT_FORMAT, SNAPSHOT_VERSION } from './snapshot'
 

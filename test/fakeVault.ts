@@ -1,5 +1,5 @@
 import { TAbstractFile, TFile, TFolder, normalizePath, parseYaml } from 'obsidian'
-import { appendYaml } from '@dotpm/core'
+import { appendYaml } from '@system-commons/core'
 
 const expectDefined = <T>(value: T | null | undefined, message = 'expected value to be defined'): T => {
   if (value == null) throw new Error(message)

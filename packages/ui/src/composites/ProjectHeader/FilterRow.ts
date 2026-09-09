@@ -11,7 +11,7 @@ import {
   countActiveFilters,
   displayName,
   priorityIcon
-} from '@dotpm/core'
+} from '@system-commons/core'
 import { renderFilterDropdown } from '../../FilterDropdown'
 import { ChipButton } from '../../primitives/ChipButton'
 

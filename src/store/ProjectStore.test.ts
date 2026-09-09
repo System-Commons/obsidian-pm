@@ -16,7 +16,7 @@ import {
   buildTaskIndex,
   findTask,
   flattenTasks
-} from '@dotpm/core'
+} from '@system-commons/core'
 import { ProjectStore } from './ProjectStore'
 import { projectTaskFolder } from './vaultFs'
 import { VaultIndex } from './VaultIndex'

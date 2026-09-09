@@ -5,8 +5,8 @@ import {
   isTerminalStatus,
   getCompleteStatusId,
   getDefaultStatusId
-} from '@dotpm/core'
-import { renderNoteLink, Checkbox, IconButton } from '@dotpm/ui'
+} from '@system-commons/core'
+import { renderNoteLink, Checkbox, IconButton } from '@system-commons/ui'
 
 /** The header count is how many subtasks sit in a terminal status. */
 export function renderSubtasksPanel(

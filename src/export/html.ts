@@ -1,4 +1,4 @@
-import type { Snapshot } from '@dotpm/api'
+import type { Snapshot } from '@system-commons/api'
 
 function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -12,5 +12,5 @@ function escapeHtml(text: string): string {
 export function renderSnapshotHtml(snapshot: Snapshot, template: string = __VIEWER_TEMPLATE__): string {
   if (!template) throw new Error('this build carries no viewer; run the viewer build first')
   const json = JSON.stringify(snapshot).replace(/</g, '\\u003c')
-  return template.split('__DOTPM_TITLE__').join(escapeHtml(snapshot.title)).split('__DOTPM_SNAPSHOT__').join(json)
+  return template.split('__PM_TITLE__').join(escapeHtml(snapshot.title)).split('__PM_SNAPSHOT__').join(json)
 }

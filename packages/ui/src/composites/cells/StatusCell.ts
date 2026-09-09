@@ -1,4 +1,4 @@
-import { type Task, type StatusConfig, type TaskStatus, getStatusConfig } from '@dotpm/core'
+import { type Task, type StatusConfig, type TaskStatus, getStatusConfig } from '@system-commons/core'
 import { renderStatusBadge } from '../../StatusBadge'
 
 export interface StatusCellProps {

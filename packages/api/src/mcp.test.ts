@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { FakeApi } from '../test/fakeApi'
 import { handleMcp, MCP_PROTOCOL_VERSION, type JsonRpcResponse } from './mcp'
 
-const INFO = { name: 'dotpm', version: '9.9.9' }
+const INFO = { name: 'project-manager', version: '9.9.9' }
 
 function rpc(method: string, params?: unknown, id: number | string = 1): unknown {
   return { jsonrpc: '2.0', id, method, params }
@@ -89,14 +89,20 @@ describe('handleMcp', () => {
   it('exposes projects as resources and reads tasks by uri', async () => {
     const list = (await handleMcp(rpc('resources/list'), api, INFO)) as JsonRpcResponse
     expect(list.result).toEqual({
-      resources: [expect.objectContaining({ uri: 'dotpm://projects/p1', name: 'Demo', mimeType: 'application/json' })]
+      resources: [
+        expect.objectContaining({ uri: 'project-manager://projects/p1', name: 'Demo', mimeType: 'application/json' })
+      ]
     })
-    const read = (await handleMcp(rpc('resources/read', { uri: 'dotpm://tasks/t1' }), api, INFO)) as JsonRpcResponse
+    const read = (await handleMcp(
+      rpc('resources/read', { uri: 'project-manager://tasks/t1' }),
+      api,
+      INFO
+    )) as JsonRpcResponse
     const contents = (read.result as { contents: Array<{ uri: string; text: string }> }).contents
-    expect(contents[0].uri).toBe('dotpm://tasks/t1')
+    expect(contents[0].uri).toBe('project-manager://tasks/t1')
     expect(JSON.parse(contents[0].text)).toMatchObject({ id: 't1', title: 'First' })
     const project = (await handleMcp(
-      rpc('resources/read', { uri: 'dotpm://projects/p1' }),
+      rpc('resources/read', { uri: 'project-manager://projects/p1' }),
       api,
       INFO
     )) as JsonRpcResponse

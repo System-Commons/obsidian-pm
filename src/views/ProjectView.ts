@@ -8,7 +8,7 @@ import {
   makeDefaultFilter,
   makeId,
   truncateTitle
-} from '@dotpm/core'
+} from '@system-commons/core'
 import {
   folderOf,
   personKeyer,
@@ -18,7 +18,7 @@ import {
   scopeKey,
   type ScopeSpec
 } from '../store'
-import { safeAsync, ChipButton, ViewSwitcher, ProjectHeader, renderGlyph } from '@dotpm/ui'
+import { safeAsync, ChipButton, ViewSwitcher, ProjectHeader, renderGlyph } from '@system-commons/ui'
 import type { SubView } from './SubView'
 import { TableView } from './table/TableView'
 import type { TableViewState } from './table/TableView'

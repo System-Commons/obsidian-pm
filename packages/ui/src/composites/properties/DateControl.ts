@@ -1,6 +1,6 @@
 import { setIcon } from '../../platform'
 import { Popover } from '../../primitives/Popover'
-import { formatDate, today, type DueTone } from '@dotpm/core'
+import { formatDate, today, type DueTone } from '@system-commons/core'
 
 export interface DateControlOpts {
   container: HTMLElement

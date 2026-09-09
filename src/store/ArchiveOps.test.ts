@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { makeProject, makeTask, type Project, type Task } from '@dotpm/core'
+import { makeProject, makeTask, type Project, type Task } from '@system-commons/core'
 import type { TaskRef } from './VaultIndex'
 import { collectArchivable, withoutBlockedDependents } from './ArchiveOps'
 

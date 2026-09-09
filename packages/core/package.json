@@ -1,5 +1,5 @@
 {
-  "name": "@dotpm/core",
+  "name": "@system-commons/core",
   "version": "0.0.0",
   "private": true,
   "type": "module",

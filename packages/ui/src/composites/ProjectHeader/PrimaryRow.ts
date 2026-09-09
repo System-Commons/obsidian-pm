@@ -1,5 +1,5 @@
 import { createButton, createMenu, type PlatformButton } from '../../platform'
-import { type FilterState, type SavedView, isFilterActive } from '@dotpm/core'
+import { type FilterState, type SavedView, isFilterActive } from '@system-commons/core'
 import { safeAsync } from '../../dom'
 import { ChipButton } from '../../primitives/ChipButton'
 

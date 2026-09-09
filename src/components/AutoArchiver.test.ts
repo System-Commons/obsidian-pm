@@ -1,7 +1,15 @@
 import type { App } from 'obsidian'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { makeFakeApp } from '../../test/fakeVault'
-import { today, findTask, DEFAULT_SETTINGS, makeTask, type PMSettings, type Project, type Task } from '@dotpm/core'
+import {
+  today,
+  findTask,
+  DEFAULT_SETTINGS,
+  makeTask,
+  type PMSettings,
+  type Project,
+  type Task
+} from '@system-commons/core'
 import { ProjectStore, VaultIndex } from '../store'
 import type PMPlugin from '../main'
 import { AutoArchiver } from './AutoArchiver'

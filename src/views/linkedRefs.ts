@@ -1,6 +1,6 @@
 import type { App } from 'obsidian'
 import { resolvePeople } from '../store'
-import type { AvatarPerson } from '@dotpm/ui'
+import type { AvatarPerson } from '@system-commons/ui'
 
 /**
  * Turns stored values into references that open the note behind them: assignees and members

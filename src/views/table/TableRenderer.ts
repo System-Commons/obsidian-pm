@@ -10,9 +10,9 @@ import {
   findTaskById,
   applyTaskFilterFlat,
   isFilterActive
-} from '@dotpm/core'
+} from '@system-commons/core'
 import { personKeyer, type ProjectScope } from '../../store'
-import { renderAddButton, childTreeGuides, compareTask, type SortDir, type SortKey } from '@dotpm/ui'
+import { renderAddButton, childTreeGuides, compareTask, type SortDir, type SortKey } from '@system-commons/ui'
 import { openTaskModal } from '../../ui/ModalFactory'
 import { openAddTask } from '../addTask'
 import { renderTaskRow, updateSelectedRow, updateSelectAllCheckbox } from './TableRow'

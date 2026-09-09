@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { handleHttp, type HttpHost } from '@dotpm/api'
+import { handleHttp, type HttpHost } from '@system-commons/api'
 
 type HttpModule = typeof import('node:http')
 type Server = import('node:http').Server

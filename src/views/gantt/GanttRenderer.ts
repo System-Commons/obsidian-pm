@@ -1,11 +1,11 @@
 import type PMPlugin from '../../main'
-import type { StatusConfig, FlatTask } from '@dotpm/core'
+import type { StatusConfig, FlatTask } from '@system-commons/core'
 import type { ProjectScope } from '../../store'
-import type { GanttCanvas } from '@dotpm/ui'
+import type { GanttCanvas } from '@system-commons/ui'
 import type { DragState } from './GanttDragHandler'
 import type { LinkState } from './GanttLinkHandler'
 
-export { renderGridLines, renderTodayLine, renderTimelineHeader } from '@dotpm/ui'
+export { renderGridLines, renderTodayLine, renderTimelineHeader } from '@system-commons/ui'
 export { renderTaskBar, renderMilestoneLabels, renderDependencyArrows } from './GanttTaskBarRenderer'
 
 /** The drawing surfaces plus everything the interactive layer needs to edit through them. */

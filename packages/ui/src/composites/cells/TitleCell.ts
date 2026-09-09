@@ -1,4 +1,4 @@
-import type { Task } from '@dotpm/core'
+import type { Task } from '@system-commons/core'
 import { Chip } from '../../primitives/Chip'
 import { IconButton } from '../../primitives/IconButton'
 import { renderTagChip } from '../tagChip'

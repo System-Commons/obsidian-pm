@@ -11,7 +11,7 @@ import {
   makeTask,
   displayName,
   priorityIcon
-} from '@dotpm/core'
+} from '@system-commons/core'
 import {
   renderDueChip,
   renderTagChip,
@@ -66,7 +66,7 @@ import {
   renderStatusBadge,
   renderStatusDot,
   safeAsync
-} from '@dotpm/ui'
+} from '@system-commons/ui'
 
 export const PM_STYLEGUIDE_VIEW_TYPE = 'pm-styleguide'
 

@@ -10,7 +10,7 @@ import {
   isTerminalStatus,
   stringifyCustomValue,
   totalLoggedHours
-} from '@dotpm/core'
+} from '@system-commons/core'
 import { TaskRow } from '../composites/TaskRow'
 import { AssigneesCell } from '../composites/cells/AssigneesCell'
 import { CustomFieldCell, type CustomFieldValue } from '../composites/cells/CustomFieldCell'

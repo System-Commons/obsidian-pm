@@ -1,8 +1,8 @@
 import { Menu, ButtonComponent } from 'obsidian'
 import type PMPlugin from '../main'
 import type { ProjectRef } from '../store'
-import { formatDateShort, dateUrgency } from '@dotpm/core'
-import { safeAsync, EmptyState, ProjectRow, childTreeGuides } from '@dotpm/ui'
+import { formatDateShort, dateUrgency } from '@system-commons/core'
+import { safeAsync, EmptyState, ProjectRow, childTreeGuides } from '@system-commons/ui'
 import { openProjectCreate } from '../ui/ModalFactory'
 import { linkedRefs } from './linkedRefs'
 

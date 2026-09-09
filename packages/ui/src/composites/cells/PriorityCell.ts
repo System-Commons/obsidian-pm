@@ -1,4 +1,10 @@
-import { type Task, type PriorityConfig, type PriorityIconSet, type TaskPriority, getPriorityConfig } from '@dotpm/core'
+import {
+  type Task,
+  type PriorityConfig,
+  type PriorityIconSet,
+  type TaskPriority,
+  getPriorityConfig
+} from '@system-commons/core'
 import { renderPriorityBadge } from '../../StatusBadge'
 
 export interface PriorityCellProps {

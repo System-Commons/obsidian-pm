@@ -5,7 +5,7 @@ import {
   type PriorityConfig,
   displayName,
   statusSortOrder
-} from '@dotpm/core'
+} from '@system-commons/core'
 
 export type SortKey = 'title' | 'status' | 'priority' | 'due' | 'assignees' | 'progress'
 export type SortDir = 'asc' | 'desc'

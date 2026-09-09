@@ -6,7 +6,7 @@ import {
   type StatusConfig,
   type Task,
   findTaskById
-} from '@dotpm/core'
+} from '@system-commons/core'
 import type { TaskSource } from './TaskSource'
 import type { VaultIndex } from './VaultIndex'
 

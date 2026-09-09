@@ -9,8 +9,8 @@ import {
   displayName,
   priorityIcon,
   today
-} from '@dotpm/core'
-import { addPaletteMenuItem } from '@dotpm/ui'
+} from '@system-commons/core'
+import { addPaletteMenuItem } from '@system-commons/ui'
 import { promptText } from '../../ui/ModalFactory'
 import { peopleSource } from '../../ui/PersonPicker'
 import { TaskPickerModal } from '../../modals/PickerModals'

@@ -1,4 +1,4 @@
-import { DEFAULT_PRIORITIES, DEFAULT_STATUSES, makeProject, makeTask, type Project } from '@dotpm/core'
+import { DEFAULT_PRIORITIES, DEFAULT_STATUSES, makeProject, makeTask, type Project } from '@system-commons/core'
 import type {
   Change,
   ChangePage,

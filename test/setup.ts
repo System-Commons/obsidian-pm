@@ -1,8 +1,8 @@
 import { parse, stringify } from 'yaml'
-import { setYamlCodec } from '@dotpm/core'
-import { setPlatform } from '@dotpm/ui'
-import { domPlatform } from '@dotpm/ui/dom-platform'
-import '@dotpm/ui/dom-shim'
+import { setYamlCodec } from '@system-commons/core'
+import { setPlatform } from '@system-commons/ui'
+import { domPlatform } from '@system-commons/ui/dom-platform'
+import '@system-commons/ui/dom-shim'
 
 setYamlCodec({ parse, stringify })
 if (typeof document !== 'undefined') setPlatform(domPlatform)

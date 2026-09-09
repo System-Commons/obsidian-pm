@@ -11,9 +11,9 @@ import {
   displayName,
   dueUrgency,
   getPriorityConfig
-} from '@dotpm/core'
+} from '@system-commons/core'
 import { personKeyer, type ProjectScope } from '../store'
-import { safeAsync, KanbanColumn, type KanbanCardData, renderProjectChip } from '@dotpm/ui'
+import { safeAsync, KanbanColumn, type KanbanCardData, renderProjectChip } from '@system-commons/ui'
 import { openTaskModal } from '../ui/ModalFactory'
 import { buildTaskContextMenu } from '../ui/TaskContextMenu'
 import { linkedRefs } from './linkedRefs'

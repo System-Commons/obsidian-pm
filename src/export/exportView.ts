@@ -1,5 +1,5 @@
 import { Notice, Platform, normalizePath } from 'obsidian'
-import { sanitizeFileName } from '@dotpm/core'
+import { sanitizeFileName } from '@system-commons/core'
 import type PMPlugin from '../main'
 import { folderOf } from '../store'
 import type { ProjectView } from '../views/ProjectView'

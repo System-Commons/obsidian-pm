@@ -6,7 +6,7 @@ import {
   stringifyCustomValue,
   type CustomFieldDef,
   totalLoggedHours
-} from '@dotpm/core'
+} from '@system-commons/core'
 import {
   safeAsync,
   TaskRow,
@@ -23,7 +23,7 @@ import {
   StatusCell,
   TimeCell,
   TitleCell
-} from '@dotpm/ui'
+} from '@system-commons/ui'
 import { updateSelectCheckboxes, getVisibleTaskIds } from './TableRenderer'
 import type { TableContext, TableState, TableTreeRow } from './TableRenderer'
 import { openTaskModal } from '../../ui/ModalFactory'

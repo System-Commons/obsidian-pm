@@ -32,7 +32,7 @@ Cursor, Claude Desktop and other clients that take a JSON config:
 
 The server is stateless: every request stands alone, there is no session to keep, and it does not push notifications. Clients that insist on a Server-Sent Events stream get `405` from `GET /mcp` and fall back to plain requests.
 
-Tools: `list_projects`, `get_project`, `list_tasks`, `get_task`, `search_tasks`, `create_task`, `update_task`, `move_task`, `archive_task`, `delete_task`, `list_changes`. Resources: `dotpm://projects/{id}` (the project with its tasks) and `dotpm://tasks/{id}`.
+Tools: `list_projects`, `get_project`, `list_tasks`, `get_task`, `search_tasks`, `create_task`, `update_task`, `move_task`, `archive_task`, `delete_task`, `list_changes`. Resources: `project-manager://projects/{id}` (the project with its tasks) and `project-manager://tasks/{id}`.
 
 Read a project before writing tasks into it: its `statuses` and `priorities` list the ids a task may carry, and a write with any other value is refused.
 

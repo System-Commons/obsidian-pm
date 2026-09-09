@@ -1,6 +1,6 @@
 import { Notice } from 'obsidian'
-import type { PriorityConfig, StatusConfig } from '@dotpm/core'
-import { IconButton, renderIconControl } from '@dotpm/ui'
+import type { PriorityConfig, StatusConfig } from '@system-commons/core'
+import { IconButton, renderIconControl } from '@system-commons/ui'
 
 /** On drop, moves the dragged item to this row's index. */
 export function wireRowDragReorder<T>(row: HTMLElement, index: number, items: T[], onChanged: () => void): void {

@@ -1,5 +1,5 @@
 import { setTooltip } from '../platform'
-import { displayName, stringToColor } from '@dotpm/core'
+import { displayName, stringToColor } from '@system-commons/core'
 import { makeActivatable } from '../dom'
 
 function initialsFor(name: string): string {

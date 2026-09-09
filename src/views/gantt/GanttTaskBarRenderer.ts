@@ -1,5 +1,5 @@
 import { Notice } from 'obsidian'
-import type { Task } from '@dotpm/core'
+import type { Task } from '@system-commons/core'
 import {
   svgEl,
   safeAsync,
@@ -17,7 +17,7 @@ import {
   xToDate,
   getSnapPoints,
   snapX
-} from '@dotpm/ui'
+} from '@system-commons/ui'
 import { openTaskModal } from '../../ui/ModalFactory'
 import { attachBarDrag } from './GanttDragHandler'
 import { handleLinkDotClick } from './GanttLinkHandler'

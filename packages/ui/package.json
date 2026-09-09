@@ -1,5 +1,5 @@
 {
-  "name": "@dotpm/ui",
+  "name": "@system-commons/ui",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -9,6 +9,6 @@
     "./dom-platform": "./src/dom-platform.ts"
   },
   "dependencies": {
-    "@dotpm/core": "workspace:*"
+    "@system-commons/core": "workspace:*"
   }
 }

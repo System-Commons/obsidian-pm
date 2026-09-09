@@ -1,9 +1,9 @@
 import { App, Notice, Platform, PluginSettingTab, Setting, debounce } from 'obsidian'
 import type { SettingDefinitionItem, SettingDefinitionPage } from 'obsidian'
 import type PMPlugin from './main'
-import { type PMSettings, DEFAULT_SETTINGS, PRIORITY_ICON_SET_LABELS, makeId, flattenTasks } from '@dotpm/core'
+import { type PMSettings, DEFAULT_SETTINGS, PRIORITY_ICON_SET_LABELS, makeId, flattenTasks } from '@system-commons/core'
 import { saveShortcutLabel } from './utils'
-import { renderCustomFieldFields, renderCustomFieldOptions } from '@dotpm/ui'
+import { renderCustomFieldFields, renderCustomFieldOptions } from '@system-commons/ui'
 import {
   countTaskNotesPaletteChanges,
   getTaskNotesApi,

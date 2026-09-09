@@ -9,7 +9,7 @@ import {
   getStatusConfig,
   getPriorityConfig,
   priorityIcon
-} from '@dotpm/core'
+} from '@system-commons/core'
 import { formatBadgeText, isIconName } from './icons'
 import { Chip } from './primitives/Chip'
 

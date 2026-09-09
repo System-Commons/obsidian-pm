@@ -1,16 +1,16 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_PRIORITIES, DEFAULT_STATUSES, makeDefaultFilter } from '@dotpm/core'
-import type { Snapshot } from '@dotpm/api'
+import { DEFAULT_PRIORITIES, DEFAULT_STATUSES, makeDefaultFilter } from '@system-commons/core'
+import type { Snapshot } from '@system-commons/api'
 import { mount, readEmbeddedSnapshot, viewModelFromSnapshot } from './main'
 
 const ICON = '<svg xmlns="http://www.w3.org/2000/svg" class="svg-icon lucide-check"><path d="M1 1"/></svg>'
 
 function snapshot(): Snapshot {
   return {
-    format: 'dotpm-snapshot',
+    format: 'project-manager-snapshot',
     version: 1,
-    generator: { name: 'dotpm', version: '0' },
+    generator: { name: 'project-manager', version: '0' },
     exportedAt: '2030-01-01T10:00:00.000Z',
     title: 'Alpha',
     primaryProjectId: 'p1',
@@ -104,7 +104,7 @@ describe('viewer', () => {
   })
 
   it('reads the embedded snapshot and rejects anything else', () => {
-    const el = document.body.createEl('script', { attr: { id: 'dotpm-snapshot', type: 'application/json' } })
+    const el = document.body.createEl('script', { attr: { id: 'project-manager-snapshot', type: 'application/json' } })
     el.textContent = JSON.stringify(snapshot()).replace(/</g, '\\u003c')
     expect(readEmbeddedSnapshot(document)?.title).toBe('Alpha')
     el.textContent = '{"format":"other"}'

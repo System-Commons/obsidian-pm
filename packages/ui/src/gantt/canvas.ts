@@ -1,4 +1,4 @@
-import { type GanttWeekLabel, today } from '@dotpm/core'
+import { type GanttWeekLabel, today } from '@system-commons/core'
 import { svgEl } from '../dom'
 import type { TimelineCfg } from './TimelineConfig'
 import { ROW_HEIGHT, HEADER_HEIGHT, dateToX } from './TimelineConfig'

@@ -1,7 +1,7 @@
 import type { App } from 'obsidian'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { DEFAULT_SETTINGS, makeDefaultFilter, makeTask, type PMSettings } from '@dotpm/core'
-import { isSnapshot, type Snapshot } from '@dotpm/api'
+import { DEFAULT_SETTINGS, makeDefaultFilter, makeTask, type PMSettings } from '@system-commons/core'
+import { isSnapshot, type Snapshot } from '@system-commons/api'
 import { makeFakeApp } from '../../test/fakeVault'
 import type PMPlugin from '../main'
 import { ProjectScope } from '../store/ProjectScope'
@@ -11,7 +11,7 @@ import { renderSnapshotHtml } from './html'
 import { buildSnapshot } from './snapshot'
 
 const SETTINGS: PMSettings = { ...DEFAULT_SETTINGS, autoSchedule: false }
-const TEMPLATE = '<title>__DOTPM_TITLE__</title><script id="s" type="application/json">__DOTPM_SNAPSHOT__</script>'
+const TEMPLATE = '<title>__PM_TITLE__</title><script id="s" type="application/json">__PM_SNAPSHOT__</script>'
 
 function fakePlugin(): { plugin: PMPlugin; store: ProjectStore; index: VaultIndex } {
   const { app } = makeFakeApp({ liveMetadataCache: true })
@@ -67,13 +67,13 @@ describe('buildSnapshot', () => {
 
 describe('renderSnapshotHtml', () => {
   const snapshot = {
-    format: 'dotpm-snapshot',
+    format: 'project-manager-snapshot',
     version: 1,
     title: 'A & <B>',
     projects: [],
     icons: {},
     exportedAt: '',
-    generator: { name: 'dotpm', version: '0' },
+    generator: { name: 'project-manager', version: '0' },
     primaryProjectId: 'p',
     view: { mode: 'table', filter: makeDefaultFilter(), sortKey: 'title', sortDir: 'asc', ganttGranularity: 'week' },
     settings: {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_SETTINGS, type PMSettings } from '@dotpm/core'
+import { DEFAULT_SETTINGS, type PMSettings } from '@system-commons/core'
 import { countTaskNotesPaletteChanges, importTaskNotesPalettes, type TaskNotesApi } from './tasknotes'
 
 function makeApi(): TaskNotesApi {

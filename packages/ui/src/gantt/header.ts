@@ -1,7 +1,7 @@
 import type { GanttCanvas } from './canvas'
 import { HEADER_HEIGHT, dateToX, getWeekNumber } from './TimelineConfig'
 import { svgEl } from '../dom'
-import { Temporal, type GanttWeekLabel } from '@dotpm/core'
+import { Temporal, type GanttWeekLabel } from '@system-commons/core'
 
 function formatDateRange(weekStart: Temporal.PlainDate, days: number): string {
   const end = weekStart.add({ days: days - 1 })

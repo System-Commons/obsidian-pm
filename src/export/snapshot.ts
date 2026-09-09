@@ -1,5 +1,5 @@
 import { getIcon } from 'obsidian'
-import { type FilterState, type Project, type ViewMode, flattenTasks, PRIORITY_ICON_SETS } from '@dotpm/core'
+import { type FilterState, type Project, type ViewMode, flattenTasks, PRIORITY_ICON_SETS } from '@system-commons/core'
 import {
   SNAPSHOT_FORMAT,
   SNAPSHOT_VERSION,
@@ -8,8 +8,8 @@ import {
   type ProjectSummary,
   type Snapshot,
   type SnapshotProject
-} from '@dotpm/api'
-import type { SortDir, SortKey } from '@dotpm/ui'
+} from '@system-commons/api'
+import type { SortDir, SortKey } from '@system-commons/ui'
 import type PMPlugin from '../main'
 import type { ProjectScope } from '../store'
 

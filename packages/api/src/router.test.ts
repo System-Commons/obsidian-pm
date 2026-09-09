@@ -21,13 +21,13 @@ describe('handleHttp', () => {
 
   beforeEach(() => {
     api = new FakeApi()
-    host = { api, info: { name: 'dotpm', version: '9.9.9' }, authorized: bearerAuth(() => TOKEN) }
+    host = { api, info: { name: 'project-manager', version: '9.9.9' }, authorized: bearerAuth(() => TOKEN) }
   })
 
   it('answers health without a token', async () => {
     const res = await handleHttp(request('GET', '/v1/health', { headers: {} }), host)
     expect(res.status).toBe(200)
-    expect(res.body).toEqual({ ok: true, name: 'dotpm', version: '9.9.9' })
+    expect(res.body).toEqual({ ok: true, name: 'project-manager', version: '9.9.9' })
   })
 
   it('refuses everything else without the token', async () => {
@@ -108,7 +108,10 @@ describe('handleHttp', () => {
       host
     )
     expect(init.status).toBe(200)
-    expect(init.body).toMatchObject({ id: 1, result: { protocolVersion: '2025-03-26', serverInfo: { name: 'dotpm' } } })
+    expect(init.body).toMatchObject({
+      id: 1,
+      result: { protocolVersion: '2025-03-26', serverInfo: { name: 'project-manager' } }
+    })
     const note = await handleHttp(
       request('POST', '/mcp', { body: { jsonrpc: '2.0', method: 'notifications/initialized' } }),
       host

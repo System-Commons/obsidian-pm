@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest'
-import { DEFAULT_STATUSES, makeTask } from '@dotpm/core'
+import { DEFAULT_STATUSES, makeTask } from '@system-commons/core'
 import { KanbanCard } from './KanbanCard'
 import { renderStatusBadge } from '../StatusBadge'
 

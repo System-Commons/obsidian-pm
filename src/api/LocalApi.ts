@@ -1,5 +1,5 @@
-import type { Project, Task } from '@dotpm/core'
-import { displayName, findParentId, findTaskById, flattenTasks, makeTask } from '@dotpm/core'
+import type { Project, Task } from '@system-commons/core'
+import { displayName, findParentId, findTaskById, flattenTasks, makeTask } from '@system-commons/core'
 import {
   ApiRequestError,
   parseTaskCreate,
@@ -16,7 +16,7 @@ import {
   type TaskResource,
   type TaskSearch,
   type TaskWrite
-} from '@dotpm/api'
+} from '@system-commons/api'
 import type PMPlugin from '../main'
 import type { ProjectRef } from '../store'
 import { ChangeLog } from './ChangeLog'

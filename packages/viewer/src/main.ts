@@ -1,7 +1,7 @@
-import '@dotpm/ui/dom-shim'
-import { domPlatform } from '@dotpm/ui/dom-platform'
-import { isSnapshot, tasksFromResources, type Snapshot } from '@dotpm/api'
-import type { ViewMode } from '@dotpm/core'
+import '@system-commons/ui/dom-shim'
+import { domPlatform } from '@system-commons/ui/dom-platform'
+import { isSnapshot, tasksFromResources, type Snapshot } from '@system-commons/api'
+import type { ViewMode } from '@system-commons/core'
 import {
   renderSnapshotGantt,
   renderSnapshotKanban,
@@ -11,7 +11,7 @@ import {
   ViewSwitcher,
   type SortKey,
   type ViewModel
-} from '@dotpm/ui'
+} from '@system-commons/ui'
 
 const MODES: { id: ViewMode; icon: string; label: string }[] = [
   { id: 'table', icon: 'table', label: 'Table' },
@@ -128,7 +128,7 @@ export function mount(root: HTMLElement, snapshot: Snapshot, options: MountOptio
 }
 
 export function readEmbeddedSnapshot(doc: Document): Snapshot | null {
-  const el = doc.getElementById('dotpm-snapshot')
+  const el = doc.getElementById('project-manager-snapshot')
   if (!el) return null
   try {
     const parsed: unknown = JSON.parse(el.textContent ?? '')

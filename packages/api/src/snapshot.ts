@@ -1,7 +1,14 @@
-import type { FilterState, GanttGranularity, GanttWeekLabel, LineBorders, PriorityIconSet, ViewMode } from '@dotpm/core'
+import type {
+  FilterState,
+  GanttGranularity,
+  GanttWeekLabel,
+  LineBorders,
+  PriorityIconSet,
+  ViewMode
+} from '@system-commons/core'
 import type { ProjectResource, TaskResource } from './contract'
 
-export const SNAPSHOT_FORMAT = 'dotpm-snapshot'
+export const SNAPSHOT_FORMAT = 'project-manager-snapshot'
 export const SNAPSHOT_VERSION = 1
 
 export interface SnapshotProject extends ProjectResource {

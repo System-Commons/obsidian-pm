@@ -1,4 +1,4 @@
-import { type Task, formatDateLong } from '@dotpm/core'
+import { type Task, formatDateLong } from '@system-commons/core'
 import type { DueUrgency } from '../dueChip'
 import { renderDueChip } from '../dueChip'
 import { Chip } from '../../primitives/Chip'

@@ -1,5 +1,5 @@
 import { setIcon } from '../platform'
-import type { Task } from '@dotpm/core'
+import type { Task } from '@system-commons/core'
 import { formatBadgeText, isIconName } from '../icons'
 import { safeAsync } from '../dom'
 import { KanbanCard } from './KanbanCard'

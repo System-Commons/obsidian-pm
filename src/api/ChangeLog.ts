@@ -1,5 +1,5 @@
-import type { Project, Task } from '@dotpm/core'
-import type { Change, ChangePage } from '@dotpm/api'
+import type { Project, Task } from '@system-commons/core'
+import type { Change, ChangePage } from '@system-commons/api'
 
 interface Snapshot {
   projectId: string

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { makeTask, Temporal } from '@dotpm/core'
+import { makeTask, Temporal } from '@system-commons/core'
 import { buildTimelineConfig, getSnapPoints, dateToX } from './TimelineConfig'
 
 const tasks = [makeTask({ start: '2026-03-10', due: '2026-04-20' })]

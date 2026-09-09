@@ -11,7 +11,7 @@ import {
   customFieldList,
   stringList,
   dedupePeople
-} from '@dotpm/core'
+} from '@system-commons/core'
 import { projectPathForTaskPath, resolveVaultLink } from './vaultFs'
 import { isRefLink, refToId, refToPath } from './refs'
 import { personKeyer } from './people'

@@ -14,7 +14,7 @@ import {
   flattenTasks,
   mergeById,
   truncateTitle
-} from '@dotpm/core'
+} from '@system-commons/core'
 import {
   safeAsync,
   renderAddButton,
@@ -27,7 +27,7 @@ import {
   renderCustomFieldListEditor,
   EmptyState,
   IconButton
-} from '@dotpm/ui'
+} from '@system-commons/ui'
 import { confirmDialog } from '../ui/ModalFactory'
 import { renderPersonPicker } from '../ui/PersonPicker'
 import { renderPriorityListEditor, renderStatusListEditor } from '../ui/PaletteListEditor'

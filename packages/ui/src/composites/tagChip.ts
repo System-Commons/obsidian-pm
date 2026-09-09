@@ -1,4 +1,4 @@
-import { stringToColor } from '@dotpm/core'
+import { stringToColor } from '@system-commons/core'
 import { Chip } from '../primitives/Chip'
 
 export function renderTagChip(parent: HTMLElement, tag: string, colored: boolean): Chip {

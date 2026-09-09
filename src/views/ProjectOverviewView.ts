@@ -15,7 +15,7 @@ import {
   dedupePeople,
   isTerminalStatus,
   truncateTitle
-} from '@dotpm/core'
+} from '@system-commons/core'
 import { personKeyer, type ProjectRef } from '../store'
 import {
   safeAsync,
@@ -31,7 +31,7 @@ import {
   renderTagChip,
   renderTimeChip,
   renderGlyph
-} from '@dotpm/ui'
+} from '@system-commons/ui'
 import { linkedRefs } from './linkedRefs'
 
 export const PM_PROJECT_OVERVIEW_VIEW_TYPE = 'pm-project-overview'

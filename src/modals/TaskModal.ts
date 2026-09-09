@@ -1,6 +1,6 @@
 import { App, Modal } from 'obsidian'
 import type PMPlugin from '../main'
-import type { Project, Task } from '@dotpm/core'
+import type { Project, Task } from '@system-commons/core'
 import { TaskEditor } from './TaskEditor'
 
 export class TaskModal extends Modal {

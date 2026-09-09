@@ -1,5 +1,5 @@
 {
-  "name": "@dotpm/api",
+  "name": "@system-commons/api",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -7,6 +7,6 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@dotpm/core": "workspace:*"
+    "@system-commons/core": "workspace:*"
   }
 }

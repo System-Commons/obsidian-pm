@@ -21,9 +21,9 @@ import {
   getDefaultStatusId,
   getDefaultPriorityId,
   getPriorityConfig
-} from '@dotpm/core'
+} from '@system-commons/core'
 import { TaskFileNameConflictError } from '../store'
-import { safeAsync, renderGlyph } from '@dotpm/ui'
+import { safeAsync, renderGlyph } from '@system-commons/ui'
 import { saveShortcutLabel } from '../utils'
 import { confirmDialog, openTaskByPath } from '../ui/ModalFactory'
 import { renderTaskFormFields } from './TaskFormFields'

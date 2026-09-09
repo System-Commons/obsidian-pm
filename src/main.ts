@@ -1,5 +1,5 @@
 import { MarkdownView, Notice, Platform, Plugin } from 'obsidian'
-import { bearerAuth } from '@dotpm/api'
+import { bearerAuth } from '@system-commons/api'
 import {
   DEFAULT_SETTINGS,
   makeDefaultFilter,
@@ -11,7 +11,7 @@ import {
   dedupePeople,
   displayName,
   localApiPortFor
-} from '@dotpm/core'
+} from '@system-commons/core'
 import {
   matchPersonNotes,
   personLink,
@@ -21,7 +21,7 @@ import {
   type ProjectRef,
   type TaskSource
 } from './store'
-import { safeAsync } from '@dotpm/ui'
+import { safeAsync } from '@system-commons/ui'
 import { installObsidianPlatform } from './platform'
 import { PMSettingTab } from './settings'
 import { ProjectView, PM_PROJECT_VIEW_TYPE } from './views/ProjectView'

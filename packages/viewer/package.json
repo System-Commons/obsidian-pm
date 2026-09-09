@@ -1,5 +1,5 @@
 {
-  "name": "@dotpm/viewer",
+  "name": "@system-commons/viewer",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -7,8 +7,8 @@
     ".": "./src/main.ts"
   },
   "dependencies": {
-    "@dotpm/api": "workspace:*",
-    "@dotpm/core": "workspace:*",
-    "@dotpm/ui": "workspace:*"
+    "@system-commons/api": "workspace:*",
+    "@system-commons/core": "workspace:*",
+    "@system-commons/ui": "workspace:*"
   }
 }

@@ -1,4 +1,4 @@
-import { type Task, type GanttGranularity, flattenTasks, Temporal, today, parsePlainDate } from '@dotpm/core'
+import { type Task, type GanttGranularity, flattenTasks, Temporal, today, parsePlainDate } from '@system-commons/core'
 
 export const ROW_HEIGHT = 44
 export const HEADER_HEIGHT = 56

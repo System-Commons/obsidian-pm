@@ -37,12 +37,12 @@ const html = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>__DOTPM_TITLE__</title>
+<title>__PM_TITLE__</title>
 <style>${css}</style>
 </head>
 <body>
 <div id="app"></div>
-<script id="dotpm-snapshot" type="application/json">__DOTPM_SNAPSHOT__</script>
+<script id="project-manager-snapshot" type="application/json">__PM_SNAPSHOT__</script>
 <script>${js}</script>
 </body>
 </html>

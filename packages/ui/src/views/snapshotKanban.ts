@@ -6,7 +6,7 @@ import {
   getPriorityConfig,
   matchesFilter,
   totalLoggedHours
-} from '@dotpm/core'
+} from '@system-commons/core'
 import { KanbanColumn, type KanbanCardData } from '../composites/KanbanColumn'
 import { renderProjectChip } from '../composites/projectChip'
 import { allTasks, configOf, isMulti, mergedConfig, projectOf, type ViewModel } from './model'

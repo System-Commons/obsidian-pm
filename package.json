@@ -28,9 +28,9 @@
   "devDependencies": {
     "@2bad/axiom": "2.1.0",
     "@2bad/tsconfig": "4.0.0",
-    "@dotpm/api": "workspace:*",
-    "@dotpm/core": "workspace:*",
-    "@dotpm/ui": "workspace:*",
+    "@system-commons/api": "workspace:*",
+    "@system-commons/core": "workspace:*",
+    "@system-commons/ui": "workspace:*",
     "@types/node": "26.4.1",
     "@typescript-eslint/parser": "8.69.0",
     "@vitest/coverage-v8": "5.0.0",

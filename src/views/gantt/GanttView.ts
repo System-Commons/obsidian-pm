@@ -9,7 +9,7 @@ import {
   applyTaskFilterPromote,
   Temporal,
   today
-} from '@dotpm/core'
+} from '@system-commons/core'
 import { personKeyer, type ProjectScope } from '../../store'
 import {
   renderAddButton,
@@ -22,7 +22,7 @@ import {
   HEADER_HEIGHT,
   ROW_HEIGHT,
   LABEL_WIDTH
-} from '@dotpm/ui'
+} from '@system-commons/ui'
 import { openAddTask } from '../addTask'
 import type { SubView } from '../SubView'
 import { makeDragState } from './GanttDragHandler'

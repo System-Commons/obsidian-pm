@@ -191,8 +191,8 @@ const TOOLS: ToolDefinition[] = [
   }
 ]
 
-const PROJECT_URI = /^dotpm:\/\/projects\/([^/]+)$/
-const TASK_URI = /^dotpm:\/\/tasks\/([^/]+)$/
+const PROJECT_URI = /^project-manager:\/\/projects\/([^/]+)$/
+const TASK_URI = /^project-manager:\/\/tasks\/([^/]+)$/
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -297,7 +297,7 @@ async function dispatch(method: string, params: unknown, api: DomainApi, info: S
       const projects = await api.listProjects()
       return {
         resources: projects.map((project) => ({
-          uri: `dotpm://projects/${project.id}`,
+          uri: `project-manager://projects/${project.id}`,
           name: project.title,
           description: `${project.taskCount} tasks, ${project.doneCount} done`,
           mimeType: 'application/json'
@@ -307,8 +307,12 @@ async function dispatch(method: string, params: unknown, api: DomainApi, info: S
     case 'resources/templates/list':
       return {
         resourceTemplates: [
-          { uriTemplate: 'dotpm://tasks/{taskId}', name: 'Task', mimeType: 'application/json' },
-          { uriTemplate: 'dotpm://projects/{projectId}', name: 'Project with tasks', mimeType: 'application/json' }
+          { uriTemplate: 'project-manager://tasks/{taskId}', name: 'Task', mimeType: 'application/json' },
+          {
+            uriTemplate: 'project-manager://projects/{projectId}',
+            name: 'Project with tasks',
+            mimeType: 'application/json'
+          }
         ]
       }
     case 'resources/read': {

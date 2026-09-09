@@ -6,7 +6,7 @@ import {
   type PriorityConfig,
   type PriorityIconSet,
   isFilterActive
-} from '@dotpm/core'
+} from '@system-commons/core'
 import { PrimaryRow } from './PrimaryRow'
 import { FilterRow } from './FilterRow'
 

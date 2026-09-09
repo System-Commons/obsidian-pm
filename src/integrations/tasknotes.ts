@@ -1,5 +1,5 @@
 import type { App } from 'obsidian'
-import type { PMSettings, PriorityConfig, StatusConfig } from '@dotpm/core'
+import type { PMSettings, PriorityConfig, StatusConfig } from '@system-commons/core'
 
 export interface TaskNotesStatus {
   id: string

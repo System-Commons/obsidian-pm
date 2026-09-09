@@ -13,7 +13,7 @@ import {
   stringToColor,
   completionOutcome,
   relativeDue
-} from '@dotpm/core'
+} from '@system-commons/core'
 import {
   renderPropRow,
   renderSelectControl,
@@ -24,7 +24,7 @@ import {
   renderDepRow,
   type SelectItem,
   type HiddenProperty
-} from '@dotpm/ui'
+} from '@system-commons/ui'
 import { renderCustomFieldInput } from './CustomFieldInputs'
 import { renderPersonPicker } from '../ui/PersonPicker'
 

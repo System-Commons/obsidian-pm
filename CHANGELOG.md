@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The internal packages, the MCP resource URIs (`project-manager://`) and the HTML export format id no longer carry the upstream name
+
 ## [2.4.0] - 2026-09-09
 
 First release published by System Commons. The plugin id is `project-manager-system-commons`, so it installs alongside the upstream plugin rather than replacing it.

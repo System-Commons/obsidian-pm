@@ -1,4 +1,4 @@
-import { type StatusConfig, type Task, displayName, getStatusConfig, parsePlainDate } from '@dotpm/core'
+import { type StatusConfig, type Task, displayName, getStatusConfig, parsePlainDate } from '@system-commons/core'
 import { svgEl } from '../dom'
 import type { GanttCanvas } from './canvas'
 import { BAR_BORDER_RADIUS, BAR_PADDING, HEADER_HEIGHT, ROW_HEIGHT, dateToX } from './TimelineConfig'

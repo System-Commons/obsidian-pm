@@ -1,4 +1,4 @@
-import { type GanttGranularity, type Task, applyTaskFilterPromote, flattenTasks, today } from '@dotpm/core'
+import { type GanttGranularity, type Task, applyTaskFilterPromote, flattenTasks, today } from '@system-commons/core'
 import { svgEl } from '../dom'
 import { SegmentedControl } from '../primitives/SegmentedControl'
 import { renderProjectChip } from '../composites/projectChip'

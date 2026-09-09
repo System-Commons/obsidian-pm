@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_PRIORITIES, DEFAULT_STATUSES, makeProject, makeTask, type ResolvedProjectConfig } from '@dotpm/core'
+import {
+  DEFAULT_PRIORITIES,
+  DEFAULT_STATUSES,
+  makeProject,
+  makeTask,
+  type ResolvedProjectConfig
+} from '@system-commons/core'
 import { ApiRequestError } from './contract'
 import { parseTaskCreate, parseTaskMove, parseTaskSearch, parseTaskWrite, taskPatch, taskResources } from './resources'
 

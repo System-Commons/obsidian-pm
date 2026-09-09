@@ -8,7 +8,7 @@ import {
   type TaskPriority,
   getDefaultStatusId,
   getDefaultPriorityId
-} from '@dotpm/core'
+} from '@system-commons/core'
 import {
   ensurePaletteEntries,
   getTaskNotesApi,

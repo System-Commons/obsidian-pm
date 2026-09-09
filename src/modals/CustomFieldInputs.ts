@@ -1,6 +1,18 @@
 import type PMPlugin from '../main'
-import { type Project, type Task, type CustomFieldDef, collectAllAssignees, stringifyCustomValue } from '@dotpm/core'
-import { Checkbox, renderDateControl, renderInputControl, renderMultiSelect, renderSelectControl } from '@dotpm/ui'
+import {
+  type Project,
+  type Task,
+  type CustomFieldDef,
+  collectAllAssignees,
+  stringifyCustomValue
+} from '@system-commons/core'
+import {
+  Checkbox,
+  renderDateControl,
+  renderInputControl,
+  renderMultiSelect,
+  renderSelectControl
+} from '@system-commons/ui'
 import { renderPersonPicker } from '../ui/PersonPicker'
 
 export function renderCustomFieldInput(

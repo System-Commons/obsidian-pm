@@ -1,5 +1,5 @@
-import type { Project, Recurrence, ResolvedProjectConfig, Task, TaskType } from '@dotpm/core'
-import { makeTask, parsePlainDate } from '@dotpm/core'
+import type { Project, Recurrence, ResolvedProjectConfig, Task, TaskType } from '@system-commons/core'
+import { makeTask, parsePlainDate } from '@system-commons/core'
 import {
   ApiRequestError,
   type ProjectResource,

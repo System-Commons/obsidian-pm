@@ -54,7 +54,10 @@ export default defineConfig({
     {
       files: ['packages/**/*.ts'],
       rules: {
-        'no-restricted-imports': ['error', { paths: [{ name: 'obsidian', message: 'packages must stay free of the Obsidian API' }] }]
+        'no-restricted-imports': [
+          'error',
+          { paths: [{ name: 'obsidian', message: 'packages must stay free of the Obsidian API' }] }
+        ]
       }
     },
     {
@@ -65,7 +68,7 @@ export default defineConfig({
           {
             paths: [
               { name: 'obsidian', message: 'packages must stay free of the Obsidian API' },
-              { name: '@dotpm/ui', message: 'core must not depend on ui' }
+              { name: '@system-commons/ui', message: 'core must not depend on ui' }
             ]
           }
         ]

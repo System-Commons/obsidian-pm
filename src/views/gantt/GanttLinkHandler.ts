@@ -1,7 +1,7 @@
 import { Notice } from 'obsidian'
 import type PMPlugin from '../../main'
 import type { ProjectScope } from '../../store'
-import { safeAsync } from '@dotpm/ui'
+import { safeAsync } from '@system-commons/ui'
 
 export interface LinkState {
   active: boolean

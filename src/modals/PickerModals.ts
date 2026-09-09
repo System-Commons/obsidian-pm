@@ -1,7 +1,7 @@
 import { SuggestModal, App } from 'obsidian'
-import { type Task, displayName } from '@dotpm/core'
+import { type Task, displayName } from '@system-commons/core'
 import type { ProjectRef } from '../store'
-import { renderGlyph } from '@dotpm/ui'
+import { renderGlyph } from '@system-commons/ui'
 
 /** Lists projects from the index, so picking one doesn't load every project in the vault. */
 export class ProjectPickerModal extends SuggestModal<ProjectRef> {

@@ -1,4 +1,4 @@
-import { type CustomFieldDef, CUSTOM_FIELD_TYPES, makeId } from '@dotpm/core'
+import { type CustomFieldDef, CUSTOM_FIELD_TYPES, makeId } from '@system-commons/core'
 import { IconButton } from './primitives/IconButton'
 import { renderAddButton } from './composites/addButton'
 

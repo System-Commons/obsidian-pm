@@ -11,7 +11,7 @@ import {
   type Task,
   flattenTasks,
   mergeById
-} from '@dotpm/core'
+} from '@system-commons/core'
 import type { SortDir, SortKey } from './tableSort'
 
 export interface ViewProject {

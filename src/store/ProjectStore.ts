@@ -45,7 +45,7 @@ import {
   taskFilePath,
   TASK_SLUG_MAX_LENGTH,
   type RefWriter
-} from '@dotpm/core'
+} from '@system-commons/core'
 import { archiveTask as doArchiveTask, unarchiveTask as doUnarchiveTask } from './ArchiveOps'
 import type { VaultIndex } from './VaultIndex'
 import { refLink, refListToIds, refToId } from './refs'

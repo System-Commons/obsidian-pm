@@ -10,8 +10,8 @@ import {
   setTooltip,
   stringifyYaml
 } from 'obsidian'
-import { setYamlCodec } from '@dotpm/core'
-import { setPlatform } from '@dotpm/ui'
+import { setYamlCodec } from '@system-commons/core'
+import { setPlatform } from '@system-commons/ui'
 
 /** Hands the core and ui packages Obsidian's own YAML, icons, components and menus. */
 export function installObsidianPlatform(): void {

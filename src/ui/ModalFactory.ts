@@ -1,6 +1,6 @@
 import { type App, ButtonComponent, Modal } from 'obsidian'
 import type PMPlugin from '../main'
-import { type Project, type Task, flattenTasks } from '@dotpm/core'
+import { type Project, type Task, flattenTasks } from '@system-commons/core'
 import type { ProjectRef } from '../store'
 import { TaskModal } from '../modals/TaskModal'
 import { PersonLookupModal, ProjectPickerModal, TaskPickerModal } from '../modals/PickerModals'
