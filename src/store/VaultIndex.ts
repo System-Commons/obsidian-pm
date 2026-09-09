@@ -1,13 +1,20 @@
 import type { App, Plugin, TAbstractFile } from 'obsidian'
 import { TFile, normalizePath } from 'obsidian'
-import type { CustomFieldDef, PMSettings, StatusConfig } from '../types'
-import { today } from '../dates'
-import { reaches } from './Scheduler'
-import { FRONTMATTER_KEY, TASK_FRONTMATTER_KEY } from './YamlParser'
-import { customFieldList, stringList } from './YamlHydrator'
+import {
+  type CustomFieldDef,
+  type PMSettings,
+  type StatusConfig,
+  today,
+  reaches,
+  FRONTMATTER_KEY,
+  TASK_FRONTMATTER_KEY,
+  customFieldList,
+  stringList,
+  dedupePeople
+} from '@dotpm/core'
 import { projectPathForTaskPath, resolveVaultLink } from './vaultFs'
+import { isRefLink, refToId, refToPath } from './refs'
 import { personKeyer } from './people'
-import { dedupePeople } from '../utils'
 
 export interface ProjectRef {
   path: string
@@ -363,6 +370,42 @@ export class VaultIndex {
     return map
   }
 
+  /**
+   * Task ids that notes in more than one project claim, id to every ref holding it.
+   * This is what a project folder copied on disk looks like: the copy keeps every id
+   * of the original. A repeated id inside one project doesn't count; an archived task
+   * and its replacement can share one legitimately.
+   */
+  findTaskIdCollisions(): Map<string, TaskRef[]> {
+    const byId = new Map<string, TaskRef[]>()
+    for (const ref of this.tasks.values()) {
+      if (!ref.projectPath) continue
+      const list = byId.get(ref.id)
+      if (list) list.push(ref)
+      else byId.set(ref.id, [ref])
+    }
+    const collisions = new Map<string, TaskRef[]>()
+    for (const [id, refs] of byId) {
+      if (new Set(refs.map((ref) => ref.projectPath)).size > 1) collisions.set(id, refs)
+    }
+    return collisions
+  }
+
+  /** Project ids more than one project note claims. */
+  findProjectIdCollisions(): Map<string, ProjectRef[]> {
+    const byId = new Map<string, ProjectRef[]>()
+    for (const ref of this.projects.values()) {
+      const list = byId.get(ref.id)
+      if (list) list.push(ref)
+      else byId.set(ref.id, [ref])
+    }
+    const collisions = new Map<string, ProjectRef[]>()
+    for (const [id, refs] of byId) {
+      if (refs.length > 1) collisions.set(id, refs)
+    }
+    return collisions
+  }
+
   /** The project owning a task note, by location first and by its `projectId` when it moved. */
   projectPathForTask(taskPath: string): string | null {
     return this.tasks.get(normalizePath(taskPath))?.projectPath ?? this.resolveOwner(normalizePath(taskPath), '')
@@ -415,7 +458,7 @@ export class VaultIndex {
       start: str(frontmatter.start),
       due: str(frontmatter.due),
       completed: str(frontmatter.completed),
-      dependencies: stringList(frontmatter.dependencies),
+      dependencies: stringList(frontmatter.dependencies).map((raw) => refToId(this.app, raw, path)),
       assignees: stringList(frontmatter.assignees),
       archived: path.split('/').at(-2) === 'Archive'
     }
@@ -429,8 +472,13 @@ export class VaultIndex {
    * Location wins: a task note lives in its project's `_tasks/` folder, which resolves
    * whatever order the files are indexed in. `projectId` covers a note moved out of it.
    */
-  private resolveOwner(taskPath: string, projectId: string): string | null {
-    return projectPathForTaskPath(taskPath) ?? (projectId ? (this.projectPathById.get(projectId) ?? null) : null)
+  private resolveOwner(taskPath: string, projectRef: string): string | null {
+    const byLocation = projectPathForTaskPath(taskPath)
+    if (byLocation) return byLocation
+    if (!projectRef) return null
+    return isRefLink(projectRef)
+      ? refToPath(this.app, projectRef, taskPath)
+      : (this.projectPathById.get(projectRef) ?? null)
   }
 
   /** A task indexed before its project can only be placed once that project shows up. */

@@ -1,8 +1,28 @@
-import { MarkdownView, Plugin, Notice } from 'obsidian'
-import { DEFAULT_SETTINGS, makeDefaultFilter, type PMSettings, type Project, type Task } from './types'
-import { flattenTasks, findTask } from './store/TaskTreeOps'
-import { matchPersonNotes, personLink, ProjectStore, scopeKey, VaultIndex } from './store'
-import type { ProjectRef, TaskSource } from './store'
+import { MarkdownView, Notice, Platform, Plugin } from 'obsidian'
+import { bearerAuth } from '@dotpm/api'
+import {
+  DEFAULT_SETTINGS,
+  makeDefaultFilter,
+  type PMSettings,
+  type Project,
+  type Task,
+  flattenTasks,
+  findTask,
+  dedupePeople,
+  displayName,
+  localApiPortFor
+} from '@dotpm/core'
+import {
+  matchPersonNotes,
+  personLink,
+  ProjectStore,
+  scopeKey,
+  VaultIndex,
+  type ProjectRef,
+  type TaskSource
+} from './store'
+import { safeAsync } from '@dotpm/ui'
+import { installObsidianPlatform } from './platform'
 import { PMSettingTab } from './settings'
 import { ProjectView, PM_PROJECT_VIEW_TYPE } from './views/ProjectView'
 import { ProjectOverviewView, PM_PROJECT_OVERVIEW_VIEW_TYPE } from './views/ProjectOverviewView'
@@ -18,12 +38,16 @@ import {
   openProjectPicker,
   openTaskPicker,
   openImportModal,
-  confirmDialog
+  confirmDialog,
+  promptText
 } from './ui/ModalFactory'
 import { Notifier } from './components/Notifier'
 import { AutoArchiver } from './components/AutoArchiver'
+import { IdRepair } from './components/IdRepair'
 import { migrateProjects, migrateProjectLayout } from './migration'
-import { dedupePeople, displayName, safeAsync } from './utils'
+import { LocalApi } from './api/LocalApi'
+import { exportViewAsHtml } from './export/exportView'
+import { generateToken, LocalApiServer } from './api/LocalApiServer'
 
 export default class PMPlugin extends Plugin {
   settings: PMSettings = { ...DEFAULT_SETTINGS }
@@ -31,7 +55,9 @@ export default class PMPlugin extends Plugin {
   index!: VaultIndex
   notifier!: Notifier
   autoArchiver!: AutoArchiver
+  idRepair!: IdRepair
   router!: PMViewRouter
+  localApi!: LocalApiServer
   /** Paths deliberately sent to the markdown editor, which the swap then leaves alone. */
   private markdownEscapes = new Set<string>()
   private viewRefreshScheduled = false
@@ -61,6 +87,7 @@ export default class PMPlugin extends Plugin {
   }
 
   async onload(): Promise<void> {
+    installObsidianPlatform()
     await this.loadSettings()
     this.index = new VaultIndex(this.app, () => this.settings)
     // The first sweep can run against a half-filled metadata cache, so it runs again once
@@ -72,7 +99,18 @@ export default class PMPlugin extends Plugin {
     this.store.registerVaultSync(this)
     this.notifier = new Notifier(this)
     this.autoArchiver = new AutoArchiver(this)
+    this.idRepair = new IdRepair(this)
     this.router = new PMViewRouter(this)
+    const api = new LocalApi(this)
+    this.register(api.attach())
+    this.localApi = new LocalApiServer(
+      {
+        api,
+        info: { name: 'dotpm', version: this.manifest.version },
+        authorized: bearerAuth(() => this.settings.localApiToken)
+      },
+      () => this.settings.localApiPort
+    )
 
     this.registerView(PM_PROJECT_VIEW_TYPE, (leaf) => new ProjectView(leaf, this))
     this.registerView(PM_PROJECT_OVERVIEW_VIEW_TYPE, (leaf) => new ProjectOverviewView(leaf, this))
@@ -86,6 +124,7 @@ export default class PMPlugin extends Plugin {
       safeAsync(async () => {
         this.index.build()
         await this.startupSweep()
+        await this.syncLocalApi()
       })
     )
 
@@ -122,6 +161,17 @@ export default class PMPlugin extends Plugin {
       name: 'Create new subtask',
       callback: () => {
         this.pickProjectThenCreateTask('pick-parent')
+      }
+    })
+
+    this.addCommand({
+      id: 'duplicate-project',
+      name: 'Duplicate project',
+      callback: () => {
+        this.pickProject(
+          safeAsync((project) => this.duplicateProjectFlow(project)),
+          false
+        )
       }
     })
 
@@ -200,6 +250,20 @@ export default class PMPlugin extends Plugin {
     )
 
     this.addCommand({
+      id: 'export-view-html',
+      name: 'Export current view as HTML',
+      checkCallback: (checking: boolean) => {
+        const view = this.app.workspace.getActiveViewOfType(ProjectView)
+        if (!view?.projectScope?.primary) return false
+        if (checking) return true
+        safeAsync(async () => {
+          await exportViewAsHtml(this, view)
+        })()
+        return true
+      }
+    })
+
+    this.addCommand({
       id: 'open-current-as-project',
       name: 'Open current file as project',
       checkCallback: (checking: boolean) => {
@@ -252,10 +316,27 @@ export default class PMPlugin extends Plugin {
     this.addSettingTab(new PMSettingTab(this.app, this))
     this.notifier.start()
     this.autoArchiver.start()
+    this.idRepair.start()
   }
 
   onunload(): void {
     this.notifier.stop()
+    void this.localApi.stop()
+  }
+
+  /** Brings the local API in line with the settings. Mobile has nothing to run. */
+  async syncLocalApi(): Promise<void> {
+    if (!Platform.isDesktopApp) return
+    if (!this.settings.localApiEnabled) {
+      await this.localApi.stop()
+      return
+    }
+    try {
+      await this.localApi.restart()
+    } catch (err: unknown) {
+      console.error('[PM] local API failed to start', err)
+      new Notice(`The local API could not listen on port ${this.settings.localApiPort}.`)
+    }
   }
 
   /** Opens a task note in Obsidian's own editor, where the swap leaves it alone. */
@@ -329,6 +410,16 @@ export default class PMPlugin extends Plugin {
       migrated = true
     }
 
+    if (saved?.localApiPort === undefined) {
+      this.settings.localApiPort = localApiPortFor(this.app.vault.getName())
+      migrated = true
+    }
+
+    if (!this.settings.localApiToken) {
+      this.settings.localApiToken = generateToken()
+      migrated = true
+    }
+
     if (migrated) await this.saveSettings()
   }
 
@@ -341,6 +432,20 @@ export default class PMPlugin extends Plugin {
     if (separator === -1) return true
     const path = key.slice(separator + 1)
     return path === '' || this.app.vault.getAbstractFileByPath(path) !== null
+  }
+
+  /** Prompts for a title, copies the project with fresh task ids, and opens the copy. */
+  async duplicateProjectFlow(source: Project): Promise<void> {
+    const title = await promptText(this.app, `Duplicate "${source.title}" as`, 'Project name', `${source.title} copy`)
+    if (!title) return
+    let copy: Project
+    try {
+      copy = await this.store.duplicateProject(source, title)
+    } catch (e) {
+      this.showNotice(e instanceof Error ? e.message : String(e))
+      return
+    }
+    await this.router.openProjectOverview(copy.filePath)
   }
 
   /** A project with no window of its own archives everything it has finished. */
@@ -366,6 +471,7 @@ export default class PMPlugin extends Plugin {
   private async startupSweep(): Promise<void> {
     await migrateProjects(this)
     await migrateProjectLayout(this)
+    await this.idRepair.check()
     await this.cleanupStaleProjectFilters()
     this.notifier.check()
     await this.autoArchiver.check()

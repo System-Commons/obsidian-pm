@@ -9,7 +9,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A view can be exported as a self-contained HTML page that shows the table, timeline and board in any browser
+- Other apps on the same computer can read and edit tasks over a local HTTP and MCP server when it is turned on in settings
+
+## [2.3.1] - 2026-09-07
+
+### Fixed
+
+- Status, priority, date and tag pickers opened outside the dialog when a theme applied a blur or transform to dialogs ([#276](https://github.com/dotpm/obsidian-pm/issues/276))
+
+## [2.3.0] - 2026-09-07
+
+### Added
+
+- The shortcut that saves a task and creates a project can be changed between Shift+Enter and Ctrl/Cmd+Enter
+
+### Changed
+
+- The new project dialog creates the project with the save shortcut or its create button
+
+### Fixed
+
+- Undo while typing in a dialog reverted the last task change when a Gantt view was open
+- Saving a task or project removed the properties that other plugins or the user had added to its note ([#272](https://github.com/StepanKropachev/obsidian-pm/issues/272))
+
+## [2.2.0] - 2026-09-06
+
+### Added
+
 - The timeline has a year zoom level, showing quarters under each year ([#50](https://github.com/StepanKropachev/obsidian-pm/issues/50), [#77](https://github.com/StepanKropachev/obsidian-pm/issues/77), [#147](https://github.com/StepanKropachev/obsidian-pm/issues/147))
+- A project can be duplicated with all its tasks, from the project list's context menu or the duplicate project command
+- The plugin's entry in Obsidian's plugin list links to the author's funding page
+
+### Changed
+
+- The plugin is now called dotpm, matching the [dotpm](https://dotpm.pm) organization the repository moved to ([#269](https://github.com/dotpm/obsidian-pm/issues/269)). Commands are listed under **dotpm** in the Command Palette instead of **Project Manager**. Existing hotkeys, settings, and task files are unaffected, and updates continue as before.
+- Subtasks, parents and dependencies appear in the graph view and in a note's properties as links
+
+### Fixed
+
+- Edits, dependency checks, and archiving could act on the wrong project when one project was created by copying another's folder
+- The expand/collapse triangle was hard to click in the table, project list and Gantt views ([#266](https://github.com/dotpm/obsidian-pm/pull/266))
+- A task's due date in the table kept only the first digit typed and closed before the rest could be entered
 
 ## [2.1.0] - 2026-08-27
 

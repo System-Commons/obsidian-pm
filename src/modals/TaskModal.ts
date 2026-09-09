@@ -1,6 +1,6 @@
 import { App, Modal } from 'obsidian'
 import type PMPlugin from '../main'
-import type { Project, Task } from '../types'
+import type { Project, Task } from '@dotpm/core'
 import { TaskEditor } from './TaskEditor'
 
 export class TaskModal extends Modal {
@@ -23,7 +23,7 @@ export class TaskModal extends Modal {
       task,
       parentId,
       onSave,
-      { surface: 'modal', close: () => this.close(), keyScopeEl: this.modalEl },
+      { surface: 'modal', close: () => this.close(), scope: this.scope },
       defaults
     )
   }

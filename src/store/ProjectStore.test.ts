@@ -2,21 +2,23 @@ import type { App, Plugin } from 'obsidian'
 import { TFile, TFolder } from 'obsidian'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { makeFakeApp, type FakeVault } from '../../test/fakeVault'
-import { today } from '../dates'
 import {
+  today,
   DEFAULT_SETTINGS,
   makeDefaultFilter,
   makeTask,
   type PMSettings,
   type Project,
   type StatusConfig,
-  type Task
-} from '../types'
+  type Task,
+  parseFrontmatter,
+  addDays,
+  buildTaskIndex,
+  findTask,
+  flattenTasks
+} from '@dotpm/core'
 import { ProjectStore } from './ProjectStore'
 import { projectTaskFolder } from './vaultFs'
-import { addDays } from './Scheduler'
-import { buildTaskIndex } from './TaskIndex'
-import { findTask, flattenTasks } from './TaskTreeOps'
 import { VaultIndex } from './VaultIndex'
 
 const expectDefined = <T>(value: T | null | undefined, message = 'expected value to be defined'): T => {
@@ -360,6 +362,7 @@ describe('ProjectStore round-trip', () => {
 
     expect(vault.getAbstractFileByPath('Projects/Legacy_tasks/first.md')).not.toBeNull()
     expect(vault.getAbstractFileByPath('Projects/Legacy_tasks/second.md')).not.toBeNull()
+    expect(await vault.cachedRead(file)).not.toMatch(/^tasks:/m)
 
     const reloaded = await store.loadProject(file)
     if (!reloaded) throw new Error('reload failed')
@@ -968,7 +971,7 @@ describe('ProjectStore bulk mutators', () => {
     const file = vault.getAbstractFileByPath(expectDefined(parent.filePath))
     if (!(file instanceof TFile)) throw new Error('parent file missing')
     const content = await vault.cachedRead(file)
-    expect(content.indexOf(two.id)).toBeLessThan(content.indexOf(one.id))
+    expect(content.indexOf('[[two|two]]')).toBeLessThan(content.indexOf('[[one|one]]'))
   })
 
   it('writes tasks that have no file yet even when nothing marked them dirty', async () => {
@@ -1016,7 +1019,7 @@ describe('ProjectStore.moveTaskToProject', () => {
     await store.moveTaskToProject(from, to, task.id)
 
     const content = await app.vault.cachedRead(fileAt(app, 'Work/To/_tasks/solo.md'))
-    expect(content).toContain(`projectId: "${to.id}"`)
+    expect(content).toContain('projectId: "[[To|To]]"')
   })
 
   it('does nothing when the source and target are the same project', async () => {
@@ -1481,5 +1484,243 @@ describe('ProjectStore project folders', () => {
     await flush()
 
     expect(app.vault.getAbstractFileByPath('Work/Alpha_tasks/card.md')).toBeInstanceOf(TFile)
+  })
+})
+
+describe('reference round-trip', () => {
+  it('rebuilds the tree and dependencies from the links in the notes', async () => {
+    const { store, app } = newIndexedStore()
+    const project = await store.createProject('Roadmap', 'Projects')
+    const parent = await addNamed(store, project, 'Parent')
+    const child = await addNamed(store, project, 'Child', parent.id)
+    const other = await addNamed(store, project, 'Other')
+    await store.updateTask(project, other.id, { dependencies: [child.id] })
+
+    const reloaded = expectDefined(await new ProjectStore(app, () => SETTINGS).loadProjectByPath(project.filePath))
+
+    expect(reloaded.tasks.map((t) => t.title)).toEqual(['Parent', 'Other'])
+    const reloadedParent = expectDefined(reloaded.tasks.find((t) => t.title === 'Parent'))
+    expect(reloadedParent.subtasks.map((t) => t.title)).toEqual(['Child'])
+    const reloadedOther = expectDefined(reloaded.tasks.find((t) => t.title === 'Other'))
+    expect(reloadedOther.dependencies).toEqual([child.id])
+  })
+
+  it('writes the full path when another project holds a task of the same name', async () => {
+    const { store, index, app } = newIndexedStore()
+    const alpha = await store.createProject('Alpha', 'Projects')
+    const beta = await store.createProject('Beta', 'Projects')
+    const alphaReview = await addNamed(store, alpha, 'Design review')
+    const betaReview = await addNamed(store, beta, 'Design review')
+    index.build()
+    await store.updateTask(beta, betaReview.id, { dependencies: [alphaReview.id] })
+
+    const content = await app.vault.cachedRead(fileAt(app, expectDefined(betaReview.filePath)))
+    expect(content).toContain(`dependencies: ["[[${expectDefined(alphaReview.filePath).replace(/\.md$/, '')}|`)
+  })
+
+  it('reads a vault whose notes still hold bare ids', async () => {
+    const { app, vault } = makeFakeApp({ liveMetadataCache: true })
+    const typed = app as unknown as App
+    await vault.create('Projects/Legacy.md', '---\npm-project: true\nid: "p1"\ntitle: "Legacy"\ntaskIds: ["t1"]\n---\n')
+    await vault.create(
+      'Projects/Legacy_tasks/parent.md',
+      '---\npm-task: true\nprojectId: "p1"\nid: "t1"\ntitle: "Parent"\nsubtaskIds: ["t2"]\n---\n'
+    )
+    await vault.create(
+      'Projects/Legacy_tasks/child.md',
+      '---\npm-task: true\nprojectId: "p1"\nparentId: "t1"\nid: "t2"\ntitle: "Child"\ndependencies: ["t1"]\n---\n'
+    )
+
+    const project = expectDefined(await new ProjectStore(typed, () => SETTINGS).loadProjectByPath('Projects/Legacy.md'))
+
+    expect(project.tasks.map((t) => t.id)).toEqual(['t1'])
+    expect(project.tasks[0].subtasks.map((t) => t.id)).toEqual(['t2'])
+    expect(project.tasks[0].subtasks[0].dependencies).toEqual(['t1'])
+  })
+})
+
+describe('ProjectStore.reassignIds', () => {
+  it('gives listed tasks fresh ids and remaps internal dependencies, in memory and on disk', async () => {
+    const { store, app } = newStore()
+    const project = await store.createProject('Roadmap', 'Projects')
+    const alpha = await addNamed(store, project, 'Alpha')
+    const beta = await addNamed(store, project, 'Beta')
+    await store.updateTask(project, beta.id, { dependencies: [alpha.id] })
+    const oldAlphaId = alpha.id
+    const oldBetaId = beta.id
+
+    await store.reassignIds(project, [oldAlphaId, oldBetaId], false)
+
+    expect(findTask(project.tasks, oldAlphaId)).toBeNull()
+    expect(findTask(project.tasks, oldBetaId)).toBeNull()
+    const freshAlpha = expectDefined(project.tasks.find((t) => t.title === 'Alpha'))
+    const freshBeta = expectDefined(project.tasks.find((t) => t.title === 'Beta'))
+    expect(freshBeta.dependencies).toEqual([freshAlpha.id])
+    expect(expectDefined(project.taskIndex.get(freshAlpha.id)).task).toBe(freshAlpha)
+
+    const alphaContent = await app.vault.cachedRead(fileAt(app, expectDefined(freshAlpha.filePath)))
+    expect(alphaContent).toContain(freshAlpha.id)
+    expect(alphaContent).not.toContain(oldAlphaId)
+    const projectContent = await app.vault.cachedRead(fileAt(app, project.filePath))
+    expect(projectContent).toContain('[[alpha|Alpha]]')
+    expect(projectContent).not.toContain(oldAlphaId)
+  })
+
+  it('keeps a dependency on an id the project does not own', async () => {
+    const { store, vault } = newStore()
+    const project = await store.createProject('Roadmap', 'Projects')
+    const alpha = await addNamed(store, project, 'Alpha')
+    await store.updateTask(project, alpha.id, { dependencies: ['elsewhere1'] })
+
+    vault.resetCounts()
+    await store.reassignIds(project, ['elsewhere1'], false)
+
+    expect(expectDefined(findTask(project.tasks, alpha.id)).dependencies).toEqual(['elsewhere1'])
+    expect(vault.modifyCount.size).toBe(0)
+  })
+
+  it('writes a fresh project id into the project note and every task note', async () => {
+    const { store, app } = newStore()
+    const project = await store.createProject('Roadmap', 'Projects')
+    const alpha = await addNamed(store, project, 'Alpha')
+    const oldProjectId = project.id
+
+    await store.reassignIds(project, [], true)
+
+    expect(project.id).not.toBe(oldProjectId)
+    const projectContent = await app.vault.cachedRead(fileAt(app, project.filePath))
+    expect(projectContent).toContain(project.id)
+    const alphaContent = await app.vault.cachedRead(fileAt(app, expectDefined(alpha.filePath)))
+    expect(alphaContent).toContain('projectId: "[[Roadmap|Roadmap]]"')
+    expect(alphaContent).not.toContain(oldProjectId)
+  })
+})
+
+describe('ProjectStore.duplicateProject', () => {
+  it('clones every task with fresh ids and remaps dependencies between roots', async () => {
+    const { store, app } = newStore()
+    const source = await store.createProject('Roadmap', 'Projects')
+    const alpha = await addNamed(store, source, 'Alpha')
+    const beta = await addNamed(store, source, 'Beta')
+    await store.updateTask(source, beta.id, { dependencies: [alpha.id, 'elsewhere1'] })
+
+    const copy = await store.duplicateProject(source, 'Roadmap copy')
+
+    expect(copy.filePath).toBe('Projects/Roadmap copy/Roadmap copy.md')
+    expect(copy.id).not.toBe(source.id)
+    const copyAlpha = expectDefined(copy.tasks.find((t) => t.title === 'Alpha'))
+    const copyBeta = expectDefined(copy.tasks.find((t) => t.title === 'Beta'))
+    expect(copyAlpha.id).not.toBe(alpha.id)
+    expect(copyBeta.dependencies).toEqual([copyAlpha.id, 'elsewhere1'])
+    expect(fileAt(app, 'Projects/Roadmap copy/_tasks/alpha.md')).toBeInstanceOf(TFile)
+
+    expect(source.tasks.map((t) => t.id)).toEqual([alpha.id, beta.id])
+    expect(expectDefined(findTask(source.tasks, beta.id)).dependencies).toEqual([alpha.id, 'elsewhere1'])
+  })
+
+  it('carries the project settings, people, and descriptions over', async () => {
+    const { store, app } = newStore()
+    const source = await store.createProject('Roadmap', 'Projects')
+    source.teamMembers = ['Jane']
+    source.config = { defaultView: 'kanban' }
+    await store.updateProject(source, { description: 'The plan.' })
+    const alpha = await addNamed(store, source, 'Alpha')
+    await store.updateTask(source, alpha.id, { description: 'Alpha body.' })
+
+    const copy = await store.duplicateProject(source, 'Roadmap copy')
+
+    expect(copy.teamMembers).toEqual(['Jane'])
+    expect(copy.config).toEqual({ defaultView: 'kanban' })
+    expect(copy.description).toBe('The plan.')
+    const copyAlphaContent = await app.vault.cachedRead(fileAt(app, 'Projects/Roadmap copy/_tasks/alpha.md'))
+    expect(copyAlphaContent).toContain('Alpha body.')
+  })
+
+  it('refuses a title already taken beside the source', async () => {
+    const { store } = newStore()
+    const source = await store.createProject('Roadmap', 'Projects')
+
+    await expect(store.duplicateProject(source, 'Roadmap')).rejects.toThrow('already exists')
+  })
+})
+
+describe('ProjectStore foreign frontmatter', () => {
+  const TIME_ENTRIES = 'timeEntries:\n  - startTime: 2026-09-02T07:00:00\n    endTime: 2026-09-02T07:25:00\n'
+  const EXPECTED = [{ startTime: '2026-09-02T07:00:00', endTime: '2026-09-02T07:25:00' }]
+
+  async function seeded() {
+    const { store, app } = newStore()
+    const project = await store.createProject('Foreign', 'Projects')
+    const task = await addNamed(store, project, 'Alpha')
+    await editOnDisk(app, 'Projects/Foreign/_tasks/alpha.md', (content) =>
+      content.replace('---\n', `---\n${TIME_ENTRIES}`)
+    )
+    return { store, app, project, task }
+  }
+
+  async function frontmatterAt(app: App, path: string): Promise<Record<string, unknown>> {
+    const content = await app.vault.cachedRead(fileAt(app, path))
+    return expectDefined(parseFrontmatter(content).frontmatter)
+  }
+
+  it("keeps another plugin's properties across a frontmatter-only save", async () => {
+    const { store, app, project, task } = await seeded()
+    await store.updateTask(project, task.id, { status: 'in-progress' })
+
+    const fm = await frontmatterAt(app, 'Projects/Foreign/_tasks/alpha.md')
+    expect(fm.status).toBe('in-progress')
+    expect(fm.timeEntries).toEqual(EXPECTED)
+  })
+
+  it("keeps another plugin's properties across a full rewrite", async () => {
+    const { store, app, project, task } = await seeded()
+    await store.updateTask(project, task.id, { description: 'Rewritten body' })
+
+    const fm = await frontmatterAt(app, 'Projects/Foreign/_tasks/alpha.md')
+    expect(fm.timeEntries).toEqual(EXPECTED)
+    expect(await app.vault.cachedRead(fileAt(app, 'Projects/Foreign/_tasks/alpha.md'))).toContain('Rewritten body')
+  })
+
+  it("keeps another plugin's properties when the file is renamed", async () => {
+    const { store, app, project, task } = await seeded()
+    await store.updateTask(project, task.id, { title: 'Alpha renamed' })
+
+    expect(app.vault.getAbstractFileByPath('Projects/Foreign/_tasks/alpha.md')).toBeNull()
+    const fm = await frontmatterAt(app, 'Projects/Foreign/_tasks/alpha-renamed.md')
+    expect(fm.title).toBe('Alpha renamed')
+    expect(fm.timeEntries).toEqual(EXPECTED)
+  })
+
+  it('still removes its own optional properties when they are cleared', async () => {
+    const { store, app, project, task } = await seeded()
+    await store.updateTask(project, task.id, { status: 'done' })
+    expect(await frontmatterAt(app, 'Projects/Foreign/_tasks/alpha.md')).toHaveProperty('completed')
+
+    await store.updateTask(project, task.id, { status: 'todo' })
+    const fm = await frontmatterAt(app, 'Projects/Foreign/_tasks/alpha.md')
+    expect(fm).not.toHaveProperty('completed')
+    expect(fm.timeEntries).toEqual(EXPECTED)
+  })
+
+  it('keeps properties added to the project note', async () => {
+    const { store, app } = newStore()
+    const project = await store.createProject('Aliased', 'Projects')
+    await editOnDisk(app, project.filePath, (content) => content.replace('---\n', '---\naliases:\n  - Ali\n'))
+
+    await store.updateProject(project, { color: '#123456' })
+    const fm = await frontmatterAt(app, project.filePath)
+    expect(fm.color).toBe('#123456')
+    expect(fm.aliases).toEqual(['Ali'])
+  })
+
+  it("keeps an imported note's properties", async () => {
+    const { store, app, vault } = newStore()
+    const project = await store.createProject('Import', 'Projects')
+    const note = await vault.create('Notes/Idea.md', `---\n${TIME_ENTRIES}---\nthe note body`)
+
+    await store.importNoteAsTask(project, note, { status: 'todo', priority: 'low', handling: 'move' })
+    const fm = await frontmatterAt(app, 'Projects/Import/_tasks/idea.md')
+    expect(fm['pm-task']).toBe(true)
+    expect(fm.timeEntries).toEqual(EXPECTED)
   })
 })

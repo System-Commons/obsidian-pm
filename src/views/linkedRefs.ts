@@ -1,6 +1,6 @@
 import type { App } from 'obsidian'
 import { resolvePeople } from '../store'
-import type { AvatarPerson } from '../ui/primitives/AvatarStack'
+import type { AvatarPerson } from '@dotpm/ui'
 
 /**
  * Turns stored values into references that open the note behind them: assignees and members
@@ -12,7 +12,11 @@ export function linkedRefs(app: App, values: string[], sourcePath: string): Avat
     return {
       name: person.name,
       unresolved: person.state === 'unresolved',
-      onClick: path ? () => void app.workspace.openLinkText(path, sourcePath) : undefined
+      onClick: path
+        ? () => {
+            void app.workspace.openLinkText(path, sourcePath)
+          }
+        : undefined
     }
   })
 }

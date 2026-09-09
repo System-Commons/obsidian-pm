@@ -1,6 +1,14 @@
-import { ButtonComponent, ExtraButtonComponent, ItemView, Menu, WorkspaceLeaf } from 'obsidian'
+import { ButtonComponent, ExtraButtonComponent, ItemView, Menu, Scope, WorkspaceLeaf } from 'obsidian'
 import type PMPlugin from '../main'
-import { type Project, type ViewMode, type FilterState, type SavedView, makeDefaultFilter, makeId } from '../types'
+import {
+  type Project,
+  type ViewMode,
+  type FilterState,
+  type SavedView,
+  makeDefaultFilter,
+  makeId,
+  truncateTitle
+} from '@dotpm/core'
 import {
   folderOf,
   personKeyer,
@@ -10,17 +18,14 @@ import {
   scopeKey,
   type ScopeSpec
 } from '../store'
-import { truncateTitle, safeAsync } from '../utils'
+import { safeAsync, ChipButton, ViewSwitcher, ProjectHeader, renderGlyph } from '@dotpm/ui'
 import type { SubView } from './SubView'
 import { TableView } from './table/TableView'
 import type { TableViewState } from './table/TableView'
+import type { ExportViewState } from '../export/snapshot'
 import { GanttView } from './gantt/GanttView'
 import { KanbanView } from './KanbanView'
 import { openTaskModal } from '../ui/ModalFactory'
-import { ChipButton } from '../ui/primitives/ChipButton'
-import { ViewSwitcher } from '../ui/primitives/ViewSwitcher'
-import { ProjectHeader } from '../ui/composites/ProjectHeader'
-import { renderGlyph } from '../ui/composites/properties'
 
 export const PM_PROJECT_VIEW_TYPE = 'pm-project'
 
@@ -50,7 +55,7 @@ export class ProjectView extends ItemView {
   private headerEl!: HTMLElement
   private bodyEl!: HTMLElement
   private header: ProjectHeader | null = null
-  private keydownHandler: ((e: KeyboardEvent) => void) | null = null
+  private keyScope: Scope
   private pendingRefresh: Promise<void> | null = null
   private initialized = false
   /** Set once the default view mode is applied, so reloads don't undo a mode switch. */
@@ -67,6 +72,8 @@ export class ProjectView extends ItemView {
     this.plugin = plugin
     this.currentView = plugin.settings.defaultView
     this.navigation = false
+    this.keyScope = new Scope(this.app.scope)
+    this.scope = this.keyScope
   }
 
   getViewType(): string {
@@ -74,6 +81,17 @@ export class ProjectView extends ItemView {
   }
   getDisplayText(): string {
     return truncateTitle(this.projectScope?.label() ?? 'Project', 10)
+  }
+
+  /** The mode, filter and sort a reader of an export starts from. */
+  exportState(): ExportViewState {
+    const table = this.subview instanceof TableView ? this.subview.getViewState() : this.savedTableViewState
+    return {
+      mode: this.currentView,
+      filter: { ...this.filter },
+      sortKey: table?.sortKey ?? 'title',
+      sortDir: table?.sortDir ?? 'asc'
+    }
   }
   getIcon(): string {
     return 'chart-gantt'
@@ -105,10 +123,6 @@ export class ProjectView extends ItemView {
   }
 
   onClose(): Promise<void> {
-    if (this.keydownHandler) {
-      this.containerEl.removeEventListener('keydown', this.keydownHandler)
-      this.keydownHandler = null
-    }
     this.subview?.destroy?.()
     this.subview = null
     return Promise.resolve()
@@ -127,14 +141,6 @@ export class ProjectView extends ItemView {
     this.toolbarEl = root.createDiv('pm-toolbar')
     this.headerEl = root.createDiv('pm-project-header-mount')
     this.bodyEl = root.createDiv('pm-content')
-
-    this.keydownHandler = (e: KeyboardEvent) => {
-      this.subview?.handleKeyDown?.(e)
-    }
-    this.containerEl.addEventListener('keydown', this.keydownHandler)
-    if (!this.containerEl.hasAttribute('tabindex')) {
-      this.containerEl.setAttribute('tabindex', '-1')
-    }
 
     this.register(
       this.plugin.store.onProjectChanged((path) => {
@@ -525,6 +531,7 @@ export class ProjectView extends ItemView {
           this.plugin,
           () => this.refreshProject(),
           this.filter,
+          this.keyScope,
           this.savedTableViewState ?? undefined
         )
         if (savedTableScrollTop !== null) table.setPendingScrollTop(savedTableScrollTop)
@@ -532,7 +539,14 @@ export class ProjectView extends ItemView {
         break
       }
       case 'gantt': {
-        const gantt = new GanttView(this.bodyEl, scope, this.plugin, () => this.refreshProject(), this.filter)
+        const gantt = new GanttView(
+          this.bodyEl,
+          scope,
+          this.plugin,
+          () => this.refreshProject(),
+          this.filter,
+          this.keyScope
+        )
         if (savedGanttScroll) gantt.setPendingScroll(savedGanttScroll)
         if (savedGanttLabelWidth !== null) gantt.setLabelWidth(savedGanttLabelWidth)
         this.subview = gantt

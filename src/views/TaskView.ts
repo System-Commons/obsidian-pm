@@ -1,9 +1,7 @@
-import { ItemView, WorkspaceLeaf } from 'obsidian'
+import { ItemView, Scope, WorkspaceLeaf } from 'obsidian'
 import type PMPlugin from '../main'
-import type { Task } from '../types'
-import { flattenTasks } from '../store'
-import { EmptyState } from '../ui/primitives/EmptyState'
-import { truncateTitle } from '../utils'
+import { type Task, flattenTasks, truncateTitle } from '@dotpm/core'
+import { EmptyState } from '@dotpm/ui'
 import { TaskEditor } from '../modals/TaskEditor'
 
 export const PM_TASK_VIEW_TYPE = 'pm-task'
@@ -22,11 +20,14 @@ export class TaskView extends ItemView {
   private editor: TaskEditor | null = null
   private state: TaskViewState = {}
   private taskTitle = 'Task'
+  private keyScope: Scope
 
   constructor(leaf: WorkspaceLeaf, plugin: PMPlugin) {
     super(leaf)
     this.plugin = plugin
     this.navigation = false
+    this.keyScope = new Scope(this.app.scope)
+    this.scope = this.keyScope
   }
 
   getViewType(): string {
@@ -93,7 +94,7 @@ export class TaskView extends ItemView {
       task,
       parentId ?? null,
       () => {},
-      { surface: 'tab', close: () => this.leaf.detach(), keyScopeEl: this.containerEl },
+      { surface: 'tab', close: () => this.leaf.detach(), scope: this.keyScope },
       defaults
     )
     this.editor.mount(this.contentEl)

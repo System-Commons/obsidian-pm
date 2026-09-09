@@ -1,15 +1,9 @@
 import { Menu } from 'obsidian'
+import { Chip, CollapseToggle, IconButton, renderProjectChip, renderStatusDot, safeAsync, ROW_HEIGHT } from '@dotpm/ui'
 import type PMPlugin from '../../main'
-import type { StatusConfig, Task } from '../../types'
+import type { StatusConfig, Task } from '@dotpm/core'
 import type { ProjectScope, TaskRef } from '../../store'
-import { Chip } from '../../ui/primitives/Chip'
-import { CollapseToggle } from '../../ui/primitives/CollapseToggle'
-import { IconButton } from '../../ui/primitives/IconButton'
 import { openTaskByPath, openTaskModal } from '../../ui/ModalFactory'
-import { renderProjectChip } from '../../ui/composites/projectChip'
-import { renderStatusDot } from '../../ui/StatusBadge'
-import { safeAsync } from '../../utils'
-import { ROW_HEIGHT } from './TimelineConfig'
 
 export interface LabelContext {
   plugin: PMPlugin
@@ -116,7 +110,13 @@ export function renderTaskLabel(
             item
               .setTitle(nameOf(ref))
               .setIcon('link-2')
-              .onClick(safeAsync(() => openTaskByPath(ctx.plugin, ref.path, () => void ctx.onRefresh())))
+              .onClick(
+                safeAsync(() =>
+                  openTaskByPath(ctx.plugin, ref.path, () => {
+                    void ctx.onRefresh()
+                  })
+                )
+              )
           )
         }
         menu.showAtMouseEvent(e)

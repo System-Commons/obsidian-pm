@@ -4,19 +4,28 @@ import {
   Component,
   ExtraButtonComponent,
   Keymap,
+  type KeymapEventHandler,
   Menu,
   MarkdownRenderer,
   Notice,
+  type Scope,
   setIcon,
   setTooltip
 } from 'obsidian'
 import type PMPlugin from '../main'
-import { type Project, type Task, makeTask } from '../types'
-import { flattenTasks } from '../store/TaskTreeOps'
+import {
+  type Project,
+  type Task,
+  makeTask,
+  flattenTasks,
+  getDefaultStatusId,
+  getDefaultPriorityId,
+  getPriorityConfig
+} from '@dotpm/core'
 import { TaskFileNameConflictError } from '../store'
-import { safeAsync, getDefaultStatusId, getDefaultPriorityId, getPriorityConfig } from '../utils'
+import { safeAsync, renderGlyph } from '@dotpm/ui'
+import { saveShortcutLabel } from '../utils'
 import { confirmDialog, openTaskByPath } from '../ui/ModalFactory'
-import { renderGlyph } from '../ui/composites/properties'
 import { renderTaskFormFields } from './TaskFormFields'
 import { renderTimeTrackingPanel } from './TimeTrackingPanel'
 import { renderSubtasksPanel } from './SubtasksPanel'
@@ -27,8 +36,8 @@ export interface TaskEditorHost {
   surface: 'modal' | 'tab'
   /** Dismiss the surface. */
   close: () => void
-  /** Element the Shift+Enter shortcut is bound to. */
-  keyScopeEl: HTMLElement
+  /** Keymap scope the save shortcut is registered on. */
+  scope: Scope
 }
 
 export class TaskEditor {
@@ -42,7 +51,7 @@ export class TaskEditor {
   private persistPromise: Promise<void> | null = null
   private noteSuggest: NoteLinkSuggest | null = null
   private shownExtras = new Set<string>()
-  private saveKeyHandler: ((e: KeyboardEvent) => void) | null = null
+  private saveKeyHandler: KeymapEventHandler | null = null
   private containerEl: HTMLElement | null = null
 
   constructor(
@@ -102,7 +111,7 @@ export class TaskEditor {
       }
     }
     if (this.saveKeyHandler) {
-      this.host.keyScopeEl.removeEventListener('keydown', this.saveKeyHandler)
+      this.host.scope.unregister(this.saveKeyHandler)
       this.saveKeyHandler = null
     }
     this.noteSuggest?.destroy()
@@ -349,7 +358,7 @@ export class TaskEditor {
       autosizeTitle()
     })
     titleInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) e.preventDefault()
+      if (e.key === 'Enter' && !Keymap.isModifier(e, this.plugin.settings.editorSaveModifier)) e.preventDefault()
     })
     window.setTimeout(autosizeTitle, 0)
     titleInput.focus()
@@ -602,8 +611,9 @@ export class TaskEditor {
       this.host.close()
     })
 
+    const modifier = this.plugin.settings.editorSaveModifier
     const saveBtn = new ButtonComponent(footer)
-      .setButtonText(this.isNew ? 'Create (Shift+Enter)' : 'Save (Shift+Enter)')
+      .setButtonText(`${this.isNew ? 'Create' : 'Save'} (${saveShortcutLabel(modifier)})`)
       .setCta()
     let saving = false
     const doSave = async () => {
@@ -635,13 +645,10 @@ export class TaskEditor {
       void doSave()
     })
 
-    if (this.saveKeyHandler) this.host.keyScopeEl.removeEventListener('keydown', this.saveKeyHandler)
-    this.saveKeyHandler = (e: KeyboardEvent) => {
-      if (e.key === 'Enter' && e.shiftKey) {
-        e.preventDefault()
-        void doSave()
-      }
-    }
-    this.host.keyScopeEl.addEventListener('keydown', this.saveKeyHandler)
+    if (this.saveKeyHandler) this.host.scope.unregister(this.saveKeyHandler)
+    this.saveKeyHandler = this.host.scope.register([modifier], 'Enter', () => {
+      void doSave()
+      return false
+    })
   }
 }

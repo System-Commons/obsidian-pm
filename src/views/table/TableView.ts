@@ -1,9 +1,9 @@
-import { Notice } from 'obsidian'
+import { Notice, type KeymapEventHandler, type Scope } from 'obsidian'
 import { confirmDialog } from '../../ui/ModalFactory'
 import type PMPlugin from '../../main'
-import type { FilterState, Project } from '../../types'
+import type { FilterState, Project } from '@dotpm/core'
 import type { ProjectScope } from '../../store'
-import { safeAsync } from '../../utils'
+import { safeAsync } from '@dotpm/ui'
 import type { SubView } from '../SubView'
 import { renderTable, refreshTableBody, handleTableKeyDown, ROW_HEIGHT_ESTIMATE } from './TableRenderer'
 import type { SortKey, SortDir, TableState } from './TableRenderer'
@@ -18,9 +18,12 @@ export interface TableViewState {
   sortDir: SortDir
 }
 
+const TABLE_KEYS = ['Escape', 'ArrowDown', 'ArrowUp', 'j', 'k', 'Enter', 'e', 'Delete', 'Backspace']
+
 export class TableView implements SubView {
   private state: TableState
   private pendingScrollTop: number | null = null
+  private keyHandlers: KeymapEventHandler[]
 
   constructor(
     private container: HTMLElement,
@@ -28,6 +31,7 @@ export class TableView implements SubView {
     private plugin: PMPlugin,
     private onRefresh: () => Promise<void>,
     filter: FilterState,
+    private keyScope: Scope,
     initialState?: TableViewState
   ) {
     this.state = {
@@ -47,6 +51,11 @@ export class TableView implements SubView {
       windowEnd: -1,
       renderWindow: null
     }
+    this.keyHandlers = TABLE_KEYS.map((key) =>
+      keyScope.register([], key, (e) => {
+        handleTableKeyDown(e, this.makeTableContext())
+      })
+    )
   }
 
   getScrollTop(): number {
@@ -85,11 +94,9 @@ export class TableView implements SubView {
     }
   }
 
-  handleKeyDown(e: KeyboardEvent): void {
-    handleTableKeyDown(e, this.makeTableContext())
-  }
-
   destroy(): void {
+    for (const handler of this.keyHandlers) this.keyScope.unregister(handler)
+    this.keyHandlers = []
     this.state.resizeObserver?.disconnect()
     this.state.resizeObserver = null
   }
