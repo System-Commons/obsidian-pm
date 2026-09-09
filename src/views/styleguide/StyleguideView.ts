@@ -19,7 +19,6 @@ import {
   renderMetricStrip,
   renderMilestoneTimeline,
   renderNoteLink,
-  renderProjectChip,
   ActionsCell,
   AssigneesCell,
   CustomFieldCell,
@@ -27,7 +26,6 @@ import {
   DueDateCell,
   ExpandCell,
   PriorityCell,
-  ProjectCell,
   ProgressCell,
   SelectCell,
   StatusCell,
@@ -459,9 +457,6 @@ export class StyleguideView extends ItemView {
     renderDueChip(dueRow, 'Jul 20, 2026', 'normal')
     renderDueChip(dueRow, 'Jul 6, 2026', 'near')
     renderDueChip(dueRow, 'Jun 20, 2026', 'overdue')
-    const projectRow = this.row(sec, 'renderProjectChip: plain / clickable')
-    renderProjectChip(projectRow, { title: 'Platform', color: '#7a9ec4' })
-    renderProjectChip(projectRow, { title: 'Website relaunch', color: '#8b72be', onClick: noop })
   }
 
   private renderCards(): void {
@@ -491,7 +486,6 @@ export class StyleguideView extends ItemView {
       priorityColor: '#c47070',
       descriptionPreview: 'Everything that must land before the announcement goes out.',
       parentTitle: 'Website relaunch',
-      renderSource: (el) => renderProjectChip(el, { title: 'Platform', color: '#7a9ec4', onClick: noop }),
       loggedHours: 11,
       overdue: true,
       showTagColors: true,
@@ -547,7 +541,7 @@ export class StyleguideView extends ItemView {
     const sec = this.section('Table row and cells', 'table')
     sec.createDiv({
       cls: 'pm-sg-caption',
-      text: 'TaskRow + one of each cell composite, with TitleCell tree connectors. ProjectCell only appears when a view covers several projects. CustomFieldCell takes plain text, or the links a value names.'
+      text: 'TaskRow + one of each cell composite, with TitleCell tree connectors. CustomFieldCell takes plain text, or the links a value names.'
     })
     const table = sec.createEl('table', { cls: 'pm-table' })
     const tbody = table.createEl('tbody')
@@ -627,7 +621,6 @@ export class StyleguideView extends ItemView {
         onTitleSave: noopAsync,
         onAddSubtask: noop
       })
-      new ProjectCell(tr.el, { title: 'Platform', color: '#7a9ec4' })
       new StatusCell(tr.el, { task, statuses: DEFAULT_STATUSES, onChange: noop })
       new PriorityCell(tr.el, { task, priorities: DEFAULT_PRIORITIES, priorityIcons: 'chevrons', onChange: noop })
       new DueDateCell(tr.el, { task, urgency, onSave: noopAsync })

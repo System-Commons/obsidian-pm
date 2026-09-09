@@ -9,11 +9,10 @@ const ICON = '<svg xmlns="http://www.w3.org/2000/svg" class="svg-icon lucide-che
 function snapshot(): Snapshot {
   return {
     format: 'project-manager-snapshot',
-    version: 1,
+    version: 2,
     generator: { name: 'project-manager', version: '0' },
     exportedAt: '2030-01-01T10:00:00.000Z',
     title: 'Alpha',
-    primaryProjectId: 'p1',
     view: { mode: 'kanban', filter: makeDefaultFilter(), sortKey: 'title', sortDir: 'asc', ganttGranularity: 'week' },
     settings: {
       priorityIcons: 'chevrons',
@@ -23,30 +22,27 @@ function snapshot(): Snapshot {
       kanbanShowSubtasks: false,
       ganttWeekLabel: 'weekNumber'
     },
-    projects: [
-      {
-        id: 'p1',
-        path: 'Projects/Alpha/Alpha.md',
-        title: 'Alpha',
-        icon: 'rocket',
-        color: '#8b72be',
-        parentId: null,
-        taskCount: 2,
-        doneCount: 1,
-        description: '',
-        teamMembers: [],
-        customFields: [],
-        statuses: DEFAULT_STATUSES,
-        priorities: DEFAULT_PRIORITIES,
-        createdAt: '2030-01-01T00:00:00.000Z',
-        updatedAt: '2030-01-01T00:00:00.000Z',
-        tasks: [
-          task('a', 'First', null, 0, 'todo'),
-          task('a1', 'First child', 'a', 0, 'done'),
-          task('b', 'Second', null, 1, 'done')
-        ]
-      }
-    ],
+    project: {
+      id: 'p1',
+      path: 'Projects/Alpha/Alpha.md',
+      title: 'Alpha',
+      icon: 'rocket',
+      color: '#8b72be',
+      taskCount: 2,
+      doneCount: 1,
+      description: '',
+      teamMembers: [],
+      customFields: [],
+      statuses: DEFAULT_STATUSES,
+      priorities: DEFAULT_PRIORITIES,
+      createdAt: '2030-01-01T00:00:00.000Z',
+      updatedAt: '2030-01-01T00:00:00.000Z',
+      tasks: [
+        task('a', 'First', null, 0, 'todo'),
+        task('a1', 'First child', 'a', 0, 'done'),
+        task('b', 'Second', null, 1, 'done')
+      ]
+    },
     icons: { check: ICON, rocket: ICON }
   }
 }
@@ -54,7 +50,6 @@ function snapshot(): Snapshot {
 function task(id: string, title: string, parentId: string | null, position: number, status: string) {
   return {
     id,
-    projectId: 'p1',
     parentId,
     position,
     path: '',
@@ -83,8 +78,8 @@ function task(id: string, title: string, parentId: string | null, position: numb
 describe('viewer', () => {
   it('turns a snapshot into a view model with the task tree rebuilt', () => {
     const model = viewModelFromSnapshot(snapshot())
-    expect(model.projects[0].tasks.map((t) => t.id)).toEqual(['a', 'b'])
-    expect(model.projects[0].tasks[0].subtasks.map((t) => t.id)).toEqual(['a1'])
+    expect(model.project.tasks.map((t) => t.id)).toEqual(['a', 'b'])
+    expect(model.project.tasks[0].subtasks.map((t) => t.id)).toEqual(['a1'])
     expect(model.settings.ganttGranularity).toBe('week')
   })
 

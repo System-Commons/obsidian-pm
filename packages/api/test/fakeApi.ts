@@ -1,13 +1,5 @@
 import { DEFAULT_PRIORITIES, DEFAULT_STATUSES, makeProject, makeTask, type Project } from '@system-commons/core'
-import type {
-  Change,
-  ChangePage,
-  DomainApi,
-  ProjectResource,
-  ProjectSummary,
-  TaskResource,
-  TaskSearch
-} from '../src/contract'
+import type { Change, ChangePage, DomainApi, ProjectResource, TaskResource, TaskSearch } from '../src/contract'
 import { ApiRequestError } from '../src/contract'
 import {
   parseTaskCreate,
@@ -47,39 +39,22 @@ export class FakeApi implements DomainApi {
     ]
   }
 
-  private summary(): ProjectSummary {
+  private find(taskId: string): TaskResource {
+    const index = this.project.tasks.findIndex((t) => t.id === taskId)
+    if (index < 0) throw new ApiRequestError('not_found', `task ${taskId} not found`)
+    return toTaskResource(this.project.tasks[index], null, index)
+  }
+
+  async getProject(): Promise<ProjectResource> {
+    this.calls.push('getProject')
     return {
       id: this.project.id,
       path: this.project.filePath,
       title: this.project.title,
       icon: this.project.icon,
       color: this.project.color,
-      parentId: null,
       taskCount: this.project.tasks.length,
-      doneCount: this.project.tasks.filter((t) => t.status === 'done').length
-    }
-  }
-
-  private find(taskId: string): TaskResource {
-    const index = this.project.tasks.findIndex((t) => t.id === taskId)
-    if (index < 0) throw new ApiRequestError('not_found', `task ${taskId} not found`)
-    return toTaskResource(this.project.tasks[index], this.project.id, null, index)
-  }
-
-  private checkProject(projectId: string): void {
-    if (projectId !== this.project.id) throw new ApiRequestError('not_found', `project ${projectId} not found`)
-  }
-
-  async listProjects(): Promise<ProjectSummary[]> {
-    this.calls.push('listProjects')
-    return [this.summary()]
-  }
-
-  async getProject(projectId: string): Promise<ProjectResource> {
-    this.calls.push(`getProject ${projectId}`)
-    this.checkProject(projectId)
-    return {
-      ...this.summary(),
+      doneCount: this.project.tasks.filter((t) => t.status === 'done').length,
       description: this.project.description,
       teamMembers: [],
       customFields: [],
@@ -90,10 +65,9 @@ export class FakeApi implements DomainApi {
     }
   }
 
-  async listTasks(projectId: string, includeArchived = false): Promise<TaskResource[]> {
-    this.calls.push(`listTasks ${projectId}`)
-    this.checkProject(projectId)
-    return taskResources(this.project, this.project.id, includeArchived)
+  async listTasks(includeArchived = false): Promise<TaskResource[]> {
+    this.calls.push('listTasks')
+    return taskResources(this.project, includeArchived)
   }
 
   async getTask(taskId: string): Promise<TaskResource> {
@@ -104,12 +78,11 @@ export class FakeApi implements DomainApi {
   async searchTasks(search: TaskSearch): Promise<TaskResource[]> {
     this.calls.push(`searchTasks ${JSON.stringify(search)}`)
     const q = search.query?.toLowerCase()
-    return taskResources(this.project, this.project.id, true).filter((t) => !q || t.title.toLowerCase().includes(q))
+    return taskResources(this.project, true).filter((t) => !q || t.title.toLowerCase().includes(q))
   }
 
-  async createTask(projectId: string, input: unknown): Promise<TaskResource> {
-    this.calls.push(`createTask ${projectId}`)
-    this.checkProject(projectId)
+  async createTask(input: unknown): Promise<TaskResource> {
+    this.calls.push('createTask')
     const create = parseTaskCreate(input, CONFIG)
     const task = makeTask({ id: `t${this.project.tasks.length + 1}`, ...taskPatch(create) })
     this.project.tasks.push(task)

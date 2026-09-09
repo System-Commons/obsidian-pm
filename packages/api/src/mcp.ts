@@ -63,27 +63,17 @@ interface ToolDefinition {
 
 const TOOLS: ToolDefinition[] = [
   {
-    name: 'list_projects',
-    description: 'Every project in the vault with its id, title, parent and task counts.',
+    name: 'get_project',
+    description:
+      "The vault's project: its description, team, custom fields, the status and priority ids its tasks may carry, and task counts.",
     inputSchema: { type: 'object', properties: {}, additionalProperties: false }
   },
   {
-    name: 'get_project',
-    description: 'One project with its description, team, custom fields and the status and priority ids its tasks use.',
-    inputSchema: {
-      type: 'object',
-      properties: { projectId: { type: 'string' } },
-      required: ['projectId'],
-      additionalProperties: false
-    }
-  },
-  {
     name: 'list_tasks',
-    description: 'All tasks of a project in tree order. Each carries parentId and position.',
+    description: 'All tasks in tree order. Each carries parentId and position.',
     inputSchema: {
       type: 'object',
-      properties: { projectId: { type: 'string' }, includeArchived: { type: 'boolean' } },
-      required: ['projectId'],
+      properties: { includeArchived: { type: 'boolean' } },
       additionalProperties: false
     }
   },
@@ -99,12 +89,11 @@ const TOOLS: ToolDefinition[] = [
   },
   {
     name: 'search_tasks',
-    description: 'Find tasks across every project by title text, project, status or assignee.',
+    description: 'Find tasks by title text, status or assignee.',
     inputSchema: {
       type: 'object',
       properties: {
         query: { type: 'string', description: 'Case-insensitive match on the title' },
-        projectId: { type: 'string' },
         status: { type: 'string' },
         assignee: { type: 'string' },
         includeArchived: { type: 'boolean' },
@@ -115,15 +104,14 @@ const TOOLS: ToolDefinition[] = [
   },
   {
     name: 'create_task',
-    description: 'Create a task in a project, at the top level or under parentId.',
+    description: 'Create a task at the top level or under parentId.',
     inputSchema: {
       type: 'object',
       properties: {
-        projectId: { type: 'string' },
         parentId: { type: ['string', 'null'] },
         ...TASK_FIELDS
       },
-      required: ['projectId', 'title'],
+      required: ['title'],
       additionalProperties: false
     }
   },
@@ -145,13 +133,12 @@ const TOOLS: ToolDefinition[] = [
   {
     name: 'move_task',
     description:
-      'Re-parent a task (parentId, null for top level), move it to another project (projectId), or reorder it among its siblings (before or after a sibling id).',
+      'Re-parent a task (parentId, null for top level), or reorder it among its siblings (before or after a sibling id).',
     inputSchema: {
       type: 'object',
       properties: {
         taskId: { type: 'string' },
         parentId: { type: ['string', 'null'] },
-        projectId: { type: 'string' },
         before: { type: 'string' },
         after: { type: 'string' }
       },
@@ -182,7 +169,7 @@ const TOOLS: ToolDefinition[] = [
   {
     name: 'list_changes',
     description:
-      'Projects and tasks changed since a cursor, oldest first. Omit since for the current cursor only. A reset of true means the cursor was too old: refetch.',
+      'What changed since a cursor, oldest first. Omit since for the current cursor only. A reset of true means the cursor was too old: refetch.',
     inputSchema: {
       type: 'object',
       properties: { since: { type: 'integer' } },
@@ -191,7 +178,7 @@ const TOOLS: ToolDefinition[] = [
   }
 ]
 
-const PROJECT_URI = /^project-manager:\/\/projects\/([^/]+)$/
+const PROJECT_URI = /^project-manager:\/\/project$/
 const TASK_URI = /^project-manager:\/\/tasks\/([^/]+)$/
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -212,18 +199,16 @@ function withoutKeys(params: Record<string, unknown>, keys: string[]): Record<st
 
 async function callTool(name: string, params: Record<string, unknown>, api: DomainApi): Promise<unknown> {
   switch (name) {
-    case 'list_projects':
-      return api.listProjects()
     case 'get_project':
-      return api.getProject(requireString(params, 'projectId'))
+      return api.getProject()
     case 'list_tasks':
-      return api.listTasks(requireString(params, 'projectId'), params['includeArchived'] === true)
+      return api.listTasks(params['includeArchived'] === true)
     case 'get_task':
       return api.getTask(requireString(params, 'taskId'))
     case 'search_tasks':
       return api.searchTasks(parseTaskSearch(params))
     case 'create_task':
-      return api.createTask(requireString(params, 'projectId'), withoutKeys(params, ['projectId']))
+      return api.createTask(params)
     case 'update_task': {
       const expected = params['expectedUpdatedAt']
       return api.updateTask(
@@ -253,9 +238,8 @@ function text(value: unknown): { content: Array<{ type: 'text'; text: string }>;
 }
 
 async function readResource(uri: string, api: DomainApi): Promise<unknown> {
-  const project = PROJECT_URI.exec(uri)
-  if (project) {
-    const [resource, tasks] = await Promise.all([api.getProject(project[1]), api.listTasks(project[1])])
+  if (PROJECT_URI.test(uri)) {
+    const [resource, tasks] = await Promise.all([api.getProject(), api.listTasks()])
     return { ...resource, tasks }
   }
   const task = TASK_URI.exec(uri)
@@ -275,7 +259,7 @@ async function dispatch(method: string, params: unknown, api: DomainApi, info: S
         capabilities: { tools: { listChanged: false }, resources: { subscribe: false, listChanged: false } },
         serverInfo: info,
         instructions:
-          'Projects hold tasks in a tree. Read a project first to learn its status and priority ids before writing tasks.'
+          'This server exposes one project. Call get_project first to learn the status and priority ids a task may carry, then list_tasks for the tree.'
       }
     }
     case 'ping':
@@ -294,25 +278,22 @@ async function dispatch(method: string, params: unknown, api: DomainApi, info: S
       }
     }
     case 'resources/list': {
-      const projects = await api.listProjects()
+      const project = await api.getProject()
       return {
-        resources: projects.map((project) => ({
-          uri: `project-manager://projects/${project.id}`,
-          name: project.title,
-          description: `${project.taskCount} tasks, ${project.doneCount} done`,
-          mimeType: 'application/json'
-        }))
+        resources: [
+          {
+            uri: 'project-manager://project',
+            name: project.title,
+            description: `${project.taskCount} tasks, ${project.doneCount} done`,
+            mimeType: 'application/json'
+          }
+        ]
       }
     }
     case 'resources/templates/list':
       return {
         resourceTemplates: [
-          { uriTemplate: 'project-manager://tasks/{taskId}', name: 'Task', mimeType: 'application/json' },
-          {
-            uriTemplate: 'project-manager://projects/{projectId}',
-            name: 'Project with tasks',
-            mimeType: 'application/json'
-          }
+          { uriTemplate: 'project-manager://tasks/{taskId}', name: 'Task', mimeType: 'application/json' }
         ]
       }
     case 'resources/read': {

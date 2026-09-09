@@ -12,7 +12,7 @@ describe('tasksFromResources', () => {
       makeTask({ id: 'a', title: 'A', subtasks: [child], tags: ['x'], recurrence: { interval: 'weekly', every: 1 } }),
       makeTask({ id: 'b', title: 'B', archived: true, timeLogs: [{ date: '2030-01-01', hours: 2, note: '' }] })
     ]
-    const flat = taskResources(project, 'pid', true)
+    const flat = taskResources(project, true)
     const rebuilt = tasksFromResources([...flat].reverse())
     expect(rebuilt.map((t) => t.id)).toEqual(['a', 'b'])
     expect(rebuilt[0].subtasks.map((t) => t.id)).toEqual(['c'])
@@ -21,15 +21,16 @@ describe('tasksFromResources', () => {
     expect(rebuilt[0].subtasks[0].due).toBe('2030-05-05')
     expect(rebuilt[1].archived).toBe(true)
     expect(rebuilt[1].timeLogs).toEqual([{ date: '2030-01-01', hours: 2, note: '' }])
-    expect(taskResources({ ...project, tasks: rebuilt }, 'pid', true)).toEqual(flat)
+    expect(taskResources({ ...project, tasks: rebuilt }, true)).toEqual(flat)
   })
 })
 
 describe('isSnapshot', () => {
   it('accepts the current format and nothing else', () => {
-    expect(isSnapshot({ format: SNAPSHOT_FORMAT, version: SNAPSHOT_VERSION, projects: [] })).toBe(true)
-    expect(isSnapshot({ format: SNAPSHOT_FORMAT, version: 99, projects: [] })).toBe(false)
-    expect(isSnapshot({ format: 'other', version: SNAPSHOT_VERSION, projects: [] })).toBe(false)
+    expect(isSnapshot({ format: SNAPSHOT_FORMAT, version: SNAPSHOT_VERSION, project: {} })).toBe(true)
+    expect(isSnapshot({ format: SNAPSHOT_FORMAT, version: 1, projects: [] })).toBe(false)
+    expect(isSnapshot({ format: SNAPSHOT_FORMAT, version: 99, project: {} })).toBe(false)
+    expect(isSnapshot({ format: 'other', version: SNAPSHOT_VERSION, project: {} })).toBe(false)
     expect(isSnapshot(null)).toBe(false)
     expect(isSnapshot('nope')).toBe(false)
   })

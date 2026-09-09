@@ -20,8 +20,9 @@ const MODES: { id: ViewMode; icon: string; label: string }[] = [
 ]
 
 export function viewModelFromSnapshot(snapshot: Snapshot): ViewModel {
+  const { project } = snapshot
   return {
-    projects: snapshot.projects.map((project) => ({
+    project: {
       id: project.id,
       title: project.title,
       color: project.color,
@@ -41,7 +42,7 @@ export function viewModelFromSnapshot(snapshot: Snapshot): ViewModel {
         kanbanShowSubtasks: snapshot.settings.kanbanShowSubtasks,
         kanbanShowDescriptionPreview: false
       }
-    })),
+    },
     settings: { ...snapshot.settings, ganttGranularity: snapshot.view.ganttGranularity },
     filter: snapshot.view.filter,
     sortKey: snapshot.view.sortKey as SortKey,
@@ -89,14 +90,14 @@ export function mount(root: HTMLElement, snapshot: Snapshot, options: MountOptio
   root.addClass('pm-root', 'pm-snapshot')
 
   const header = root.createDiv('pm-snapshot-header')
-  const primary = model.projects[0]
-  if (primary.icon) {
+  const { project } = model
+  if (project.icon) {
     const glyph = header.createSpan({ cls: 'pm-snapshot-icon' })
-    if (snapshot.icons[primary.icon]) {
-      const svg = new DOMParser().parseFromString(snapshot.icons[primary.icon], 'image/svg+xml').documentElement
+    if (snapshot.icons[project.icon]) {
+      const svg = new DOMParser().parseFromString(snapshot.icons[project.icon], 'image/svg+xml').documentElement
       glyph.appendChild(document.importNode(svg, true))
     } else {
-      glyph.setText(primary.icon)
+      glyph.setText(project.icon)
     }
   }
   header.createEl('h1', { text: snapshot.title, cls: 'pm-snapshot-title' })

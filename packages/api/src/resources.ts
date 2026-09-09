@@ -1,9 +1,8 @@
 import type { Project, Recurrence, ResolvedProjectConfig, Task, TaskType } from '@system-commons/core'
-import { makeTask, parsePlainDate } from '@system-commons/core'
+import { flattenTasks, makeTask, parsePlainDate } from '@system-commons/core'
 import {
   ApiRequestError,
   type ProjectResource,
-  type ProjectSummary,
   type TaskCreate,
   type TaskMove,
   type TaskResource,
@@ -22,10 +21,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-export function toTaskResource(task: Task, projectId: string, parentId: string | null, position: number): TaskResource {
+export function toTaskResource(task: Task, parentId: string | null, position: number): TaskResource {
   return {
     id: task.id,
-    projectId,
     parentId,
     position,
     path: task.filePath ?? '',
@@ -51,13 +49,13 @@ export function toTaskResource(task: Task, projectId: string, parentId: string |
   }
 }
 
-/** Every task of a project in tree order, positions counted among siblings. */
-export function taskResources(project: Project, projectId: string, includeArchived: boolean): TaskResource[] {
+/** Every task of the project in tree order, positions counted among siblings. */
+export function taskResources(project: Project, includeArchived: boolean): TaskResource[] {
   const out: TaskResource[] = []
   const walk = (tasks: Task[], parentId: string | null): void => {
     tasks.forEach((task, position) => {
       if (task.archived && !includeArchived) return
-      out.push(toTaskResource(task, projectId, parentId, position))
+      out.push(toTaskResource(task, parentId, position))
       walk(task.subtasks, task.id)
     })
   }
@@ -65,13 +63,30 @@ export function taskResources(project: Project, projectId: string, includeArchiv
   return out
 }
 
+export interface ProjectCounts {
+  taskCount: number
+  doneCount: number
+}
+
+/** Live tasks only; done means a status the palette marks complete. */
+export function projectCounts(project: Project, config: ResolvedProjectConfig): ProjectCounts {
+  const complete = new Set(config.statuses.filter((status) => status.complete).map((status) => status.id))
+  const live = flattenTasks(project.tasks).filter((entry) => !entry.task.archived)
+  return { taskCount: live.length, doneCount: live.filter((entry) => complete.has(entry.task.status)).length }
+}
+
 export function toProjectResource(
   project: Project,
   config: ResolvedProjectConfig,
-  summary: ProjectSummary
+  counts: ProjectCounts
 ): ProjectResource {
   return {
-    ...summary,
+    id: project.id,
+    path: project.filePath,
+    title: project.title,
+    icon: project.icon,
+    color: project.color,
+    ...counts,
     description: project.description,
     teamMembers: [...project.teamMembers],
     customFields: config.customFields.map((field) => ({ ...field })),
@@ -202,13 +217,13 @@ export function parseTaskMove(input: unknown): TaskMove {
     if (parentId !== null && typeof parentId !== 'string') invalid('parentId must be a string or null')
     move.parentId = parentId
   }
-  for (const key of ['projectId', 'before', 'after'] as const) {
+  for (const key of ['before', 'after'] as const) {
     const value = readString(input, key)
     if (value !== undefined) move[key] = value
   }
   if (move.before !== undefined && move.after !== undefined) invalid('pass before or after, not both')
-  if (move.parentId === undefined && move.projectId === undefined && !move.before && !move.after) {
-    invalid('nothing to move: pass parentId, projectId, before or after')
+  if (move.parentId === undefined && !move.before && !move.after) {
+    invalid('nothing to move: pass parentId, before or after')
   }
   return move
 }
@@ -216,7 +231,7 @@ export function parseTaskMove(input: unknown): TaskMove {
 export function parseTaskSearch(input: unknown): TaskSearch {
   if (!isRecord(input)) invalid('expected an object')
   const search: TaskSearch = {}
-  for (const key of ['query', 'projectId', 'status', 'assignee'] as const) {
+  for (const key of ['query', 'status', 'assignee'] as const) {
     const value = readString(input, key)
     if (value !== undefined && value !== '') search[key] = value
   }

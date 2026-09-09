@@ -36,7 +36,6 @@ describe('handleMcp', () => {
     const tools = (await handleMcp(rpc('tools/list'), api, INFO)) as JsonRpcResponse
     const names = (tools.result as { tools: Array<{ name: string; inputSchema: object }> }).tools.map((t) => t.name)
     expect(names).toEqual([
-      'list_projects',
       'get_project',
       'list_tasks',
       'get_task',
@@ -53,16 +52,16 @@ describe('handleMcp', () => {
   })
 
   it('calls tools and returns JSON text content', async () => {
-    const reply = await handleMcp(rpc('tools/call', { name: 'list_projects', arguments: {} }), api, INFO)
-    expect(parsed(reply)).toEqual([expect.objectContaining({ id: 'p1', title: 'Demo' })])
+    const reply = await handleMcp(rpc('tools/call', { name: 'get_project', arguments: {} }), api, INFO)
+    expect(parsed(reply)).toEqual(expect.objectContaining({ id: 'p1', title: 'Demo', taskCount: 2 }))
 
     const created = await handleMcp(
-      rpc('tools/call', { name: 'create_task', arguments: { projectId: 'p1', title: 'Via MCP', tags: ['agent'] } }),
+      rpc('tools/call', { name: 'create_task', arguments: { title: 'Via MCP', tags: ['agent'] } }),
       api,
       INFO
     )
     expect(parsed(created)).toMatchObject({ id: 't3', title: 'Via MCP', tags: ['agent'] })
-    expect(api.calls).toContain('createTask p1')
+    expect(api.calls).toContain('createTask')
 
     await handleMcp(
       rpc('tools/call', {
@@ -86,11 +85,11 @@ describe('handleMcp', () => {
     expect(parsed(reply)).toEqual({ error: 'not_found', message: 'task zzz not found' })
   })
 
-  it('exposes projects as resources and reads tasks by uri', async () => {
+  it('exposes the project as a resource and reads tasks by uri', async () => {
     const list = (await handleMcp(rpc('resources/list'), api, INFO)) as JsonRpcResponse
     expect(list.result).toEqual({
       resources: [
-        expect.objectContaining({ uri: 'project-manager://projects/p1', name: 'Demo', mimeType: 'application/json' })
+        expect.objectContaining({ uri: 'project-manager://project', name: 'Demo', mimeType: 'application/json' })
       ]
     })
     const read = (await handleMcp(
@@ -102,7 +101,7 @@ describe('handleMcp', () => {
     expect(contents[0].uri).toBe('project-manager://tasks/t1')
     expect(JSON.parse(contents[0].text)).toMatchObject({ id: 't1', title: 'First' })
     const project = (await handleMcp(
-      rpc('resources/read', { uri: 'project-manager://projects/p1' }),
+      rpc('resources/read', { uri: 'project-manager://project' }),
       api,
       INFO
     )) as JsonRpcResponse

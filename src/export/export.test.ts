@@ -49,8 +49,7 @@ describe('buildSnapshot', () => {
     expect(snapshot.generator).toEqual({ name: 'project-manager', version: '9.9.9' })
     expect(snapshot.view).toMatchObject({ mode: 'gantt', sortKey: 'due', sortDir: 'desc', ganttGranularity: 'week' })
     expect(snapshot.view.filter.statuses).toEqual(['todo'])
-    expect(snapshot.projects.length).toBe(1)
-    const [exported] = snapshot.projects
+    const exported = snapshot.project
     expect(exported.taskCount).toBe(2)
     expect(exported.doneCount).toBe(1)
     expect(exported.statuses.map((s) => s.id)).toEqual(SETTINGS.statuses.map((s) => s.id))
@@ -66,13 +65,12 @@ describe('buildSnapshot', () => {
 describe('renderSnapshotHtml', () => {
   const snapshot = {
     format: 'project-manager-snapshot',
-    version: 1,
+    version: 2,
     title: 'A & <B>',
-    projects: [],
+    project: {},
     icons: {},
     exportedAt: '',
     generator: { name: 'project-manager', version: '0' },
-    primaryProjectId: 'p',
     view: { mode: 'table', filter: makeDefaultFilter(), sortKey: 'title', sortDir: 'asc', ganttGranularity: 'week' },
     settings: {
       priorityIcons: 'chevrons',

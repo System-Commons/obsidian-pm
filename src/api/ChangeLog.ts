@@ -17,13 +17,13 @@ function fingerprints(tasks: Task[], parentId: string | null, out: Map<string, s
 
 /**
  * A bounded log of what changed, for clients polling `changes`. It learns about
- * changes by comparing a project against the last time it saw it, so it only covers
- * projects that have been loaded in this session.
+ * changes by comparing the project against the last time it saw it, so it starts
+ * recording once the project has been read in this session.
  */
 export class ChangeLog {
   private seq = 0
   private entries: Change[] = []
-  private snapshots = new Map<string, Snapshot>()
+  private snapshot: Snapshot | null = null
 
   constructor(private readonly capacity = 1000) {}
 
@@ -31,42 +31,43 @@ export class ChangeLog {
     return this.seq
   }
 
+  /** Whether the project has been seen, and so is being compared against. */
+  get tracking(): boolean {
+    return this.snapshot !== null
+  }
+
   /**
-   * Compares a project with its last snapshot and records the differences. A project
-   * seen for the first time records nothing unless `announce` is set, since a client
-   * that never fetched it has nothing to update.
+   * Compares the project with its last snapshot and records the differences. The first
+   * sight records nothing unless `announce` is set, since a client that never fetched
+   * the project has nothing to update.
    */
   observe(project: Project, announce: boolean): void {
     const next: Snapshot = { projectId: project.id, updatedAt: project.updatedAt, tasks: new Map() }
     fingerprints(project.tasks, null, next.tasks)
-    const prev = this.snapshots.get(project.filePath)
-    this.snapshots.set(project.filePath, next)
+    const prev = this.snapshot
+    this.snapshot = next
     if (!prev) {
-      if (announce) this.push('project', 'upsert', project.id, project.id)
+      if (announce) this.push('project', 'upsert', project.id)
       return
     }
     if (prev.updatedAt !== next.updatedAt || prev.projectId !== next.projectId) {
-      this.push('project', 'upsert', project.id, project.id)
+      this.push('project', 'upsert', project.id)
     }
     for (const [id, fingerprint] of next.tasks) {
-      if (prev.tasks.get(id) !== fingerprint) this.push('task', 'upsert', id, project.id)
+      if (prev.tasks.get(id) !== fingerprint) this.push('task', 'upsert', id)
     }
     for (const id of prev.tasks.keys()) {
-      if (!next.tasks.has(id)) this.push('task', 'delete', id, project.id)
+      if (!next.tasks.has(id)) this.push('task', 'delete', id)
     }
   }
 
-  /** The project at this path is gone: its tasks go with it. */
-  forget(path: string): void {
-    const prev = this.snapshots.get(path)
+  /** The project is gone: its tasks go with it. */
+  forget(): void {
+    const prev = this.snapshot
     if (!prev) return
-    this.snapshots.delete(path)
-    for (const id of prev.tasks.keys()) this.push('task', 'delete', id, prev.projectId)
-    this.push('project', 'delete', prev.projectId, prev.projectId)
-  }
-
-  trackedPaths(): string[] {
-    return [...this.snapshots.keys()]
+    this.snapshot = null
+    for (const id of prev.tasks.keys()) this.push('task', 'delete', id)
+    this.push('project', 'delete', prev.projectId)
   }
 
   since(cursor: number | null): ChangePage {
@@ -76,9 +77,9 @@ export class ChangeLog {
     return { cursor: this.seq, changes: this.entries.filter((change) => change.seq > cursor), reset: false }
   }
 
-  private push(kind: Change['kind'], op: Change['op'], id: string, projectId: string): void {
+  private push(kind: Change['kind'], op: Change['op'], id: string): void {
     this.seq++
-    this.entries.push({ seq: this.seq, at: new Date().toISOString(), kind, op, id, projectId })
+    this.entries.push({ seq: this.seq, at: new Date().toISOString(), kind, op, id })
     if (this.entries.length > this.capacity) this.entries.splice(0, this.entries.length - this.capacity)
   }
 }

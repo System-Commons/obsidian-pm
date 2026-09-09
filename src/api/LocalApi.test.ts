@@ -16,11 +16,17 @@ function newApi(): { api: LocalApi; store: ProjectStore; index: VaultIndex; refr
   const index = new VaultIndex(typed, () => SETTINGS)
   const store = new ProjectStore(typed, () => SETTINGS, index)
   let refreshed = 0
+  const projectRef = () => index.projectRefs()[0] ?? null
   const plugin = {
     app: typed,
     index,
     store,
     settings: SETTINGS,
+    projectRef,
+    project: async () => {
+      const ref = projectRef()
+      return ref ? store.loadProjectByPath(ref.path) : null
+    },
     refreshViews: () => {
       refreshed++
     }
@@ -50,33 +56,39 @@ describe('LocalApi over the vault', () => {
     projectId = project.id
   })
 
-  it('lists projects from the index and reads them with their config', async () => {
-    const projects = await api.listProjects()
-    expect(projects).toEqual([expect.objectContaining({ id: projectId, title: 'Roadmap', taskCount: 3, doneCount: 0 })])
-    const project = await api.getProject(projectId)
+  it('reads the project with its counts and config', async () => {
+    const project = await api.getProject()
+    expect(project).toMatchObject({ id: projectId, title: 'Roadmap', taskCount: 3, doneCount: 0 })
     expect(project.statuses.map((s) => s.id)).toEqual(SETTINGS.statuses.map((s) => s.id))
-    await rejectsWith(api.getProject('missing'), 'not_found')
+  })
+
+  it('refuses everything while the vault has no project', async () => {
+    expect.hasAssertions()
+    const empty = newApi()
+    await rejectsWith(empty.api.getProject(), 'not_found')
+    await rejectsWith(empty.api.listTasks(), 'not_found')
+    await rejectsWith(empty.api.createTask({ title: 'Nope' }), 'not_found')
   })
 
   it('reads tasks with parents and positions', async () => {
-    const tasks = await api.listTasks(projectId)
+    const tasks = await api.listTasks()
     expect(tasks.map((t) => [t.id, t.parentId, t.position])).toEqual([
       ['a', null, 0],
       ['a1', 'a', 0],
       ['b', null, 1]
     ])
-    expect(await api.getTask('a1')).toMatchObject({ id: 'a1', projectId, parentId: 'a', due: '' })
+    expect(await api.getTask('a1')).toMatchObject({ id: 'a1', parentId: 'a', due: '' })
     await rejectsWith(api.getTask('nope'), 'not_found')
   })
 
-  it('searches through the index', async () => {
+  it('searches the project', async () => {
     expect((await api.searchTasks({ query: 'alpha' })).map((t) => t.id)).toEqual(['a', 'a1'])
     expect((await api.searchTasks({ query: 'alpha', limit: 1 })).map((t) => t.id)).toEqual(['a'])
-    expect((await api.searchTasks({ status: 'todo', projectId })).length).toBe(3)
+    expect((await api.searchTasks({ status: 'todo' })).length).toBe(3)
   })
 
   it('creates and updates through the store and refreshes the views', async () => {
-    const created = await api.createTask(projectId, {
+    const created = await api.createTask({
       title: 'Gamma',
       parentId: 'b',
       priority: 'high',
@@ -84,10 +96,10 @@ describe('LocalApi over the vault', () => {
     })
     expect(created).toMatchObject({ title: 'Gamma', parentId: 'b', priority: 'high', position: 0 })
     expect(await api.getTask(created.id)).toMatchObject({ title: 'Gamma', description: 'Body text' })
-    expect((await api.listTasks(projectId)).find((task) => task.id === created.id)?.description).toBe('Body text')
+    expect((await api.listTasks()).find((task) => task.id === created.id)?.description).toBe('Body text')
 
-    await rejectsWith(api.createTask(projectId, { title: 'Orphan', parentId: 'nope' }), 'not_found')
-    await rejectsWith(api.createTask(projectId, { title: 'Bad', status: 'nope' }), 'invalid')
+    await rejectsWith(api.createTask({ title: 'Orphan', parentId: 'nope' }), 'not_found')
+    await rejectsWith(api.createTask({ title: 'Bad', status: 'nope' }), 'invalid')
 
     const before = await api.getTask('a')
     await rejectsWith(api.updateTask('a', { title: 'Alpha!' }, 'stale'), 'conflict')
@@ -107,11 +119,11 @@ describe('LocalApi over the vault', () => {
 
   it('archives, unarchives and deletes', async () => {
     expect(await api.archiveTask('b', true)).toMatchObject({ archived: true })
-    expect((await api.listTasks(projectId)).map((t) => t.id)).toEqual(['a', 'a1'])
-    expect((await api.listTasks(projectId, true)).map((t) => t.id)).toEqual(['a', 'a1', 'b'])
+    expect((await api.listTasks()).map((t) => t.id)).toEqual(['a', 'a1'])
+    expect((await api.listTasks(true)).map((t) => t.id)).toEqual(['a', 'a1', 'b'])
     expect(await api.archiveTask('b', false)).toMatchObject({ archived: false })
     await api.deleteTask('a')
-    expect((await api.listTasks(projectId)).map((t) => t.id)).toEqual(['b'])
+    expect((await api.listTasks()).map((t) => t.id)).toEqual(['b'])
     await rejectsWith(api.deleteTask('a'), 'not_found')
   })
 
@@ -120,7 +132,7 @@ describe('LocalApi over the vault', () => {
     const start = await api.changes(null)
     expect(start).toEqual({ cursor: expect.any(Number), changes: [], reset: false })
 
-    await api.listTasks(projectId)
+    await api.listTasks()
     await api.updateTask('b', { title: 'Beta 2' })
     await api.deleteTask('a1')
     await new Promise((resolve) => window.setTimeout(resolve, 0))
@@ -133,7 +145,6 @@ describe('LocalApi over the vault', () => {
         ['task', 'delete', 'a1']
       ])
     )
-    expect(page.changes.every((c) => c.projectId === projectId)).toBe(true)
     expect((await api.changes(page.cursor)).changes).toEqual([])
     expect((await api.changes(-5)).reset).toBe(true)
     off()

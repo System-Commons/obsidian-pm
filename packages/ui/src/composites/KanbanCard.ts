@@ -12,8 +12,6 @@ export interface KanbanCardProps {
   priorityColor?: string
   descriptionPreview?: string
   parentTitle?: string
-  /** Leading slot in the footer, filled when a card has to say where it is from. */
-  renderSource?: (parent: HTMLElement) => void
   loggedHours: number
   overdue: boolean
   showTagColors: boolean
@@ -89,7 +87,6 @@ export class KanbanCard {
     }
 
     const footer = body.createDiv('pm-kanban-card-footer')
-    props.renderSource?.(footer)
     new AvatarStack(footer).setPeople(props.people).setMax(3).setSize('sm')
 
     if (task.due) {

@@ -37,36 +37,27 @@ function model(overrides: Partial<ViewModel> = {}): ViewModel {
     dependencies: ['a']
   })
   return {
-    projects: [
-      {
-        id: 'p1',
-        title: 'Alpha',
-        color: '#8b72be',
-        icon: '🚀',
-        config: CONFIG,
-        tasks: [
-          makeTask({
-            id: 'a',
-            title: 'Parent',
-            start: '2030-01-01',
-            due: '2030-01-10',
-            progress: 40,
-            subtasks: [child],
-            customFields: { sprint: 'S1' }
-          }),
-          makeTask({ id: 'm', title: 'Launch', type: 'milestone', due: '2030-01-12' }),
-          makeTask({ id: 'z', title: 'Old', status: 'done', archived: true })
-        ]
-      },
-      {
-        id: 'p2',
-        title: 'Beta',
-        color: '#767491',
-        icon: '📦',
-        config: CONFIG,
-        tasks: [makeTask({ id: 'b', title: 'Beta task', status: 'done', due: '2030-02-01' })]
-      }
-    ],
+    project: {
+      id: 'p1',
+      title: 'Alpha',
+      color: '#8b72be',
+      icon: '🚀',
+      config: CONFIG,
+      tasks: [
+        makeTask({
+          id: 'a',
+          title: 'Parent',
+          start: '2030-01-01',
+          due: '2030-01-10',
+          progress: 40,
+          subtasks: [child],
+          customFields: { sprint: 'S1' }
+        }),
+        makeTask({ id: 'm', title: 'Launch', type: 'milestone', due: '2030-01-12' }),
+        makeTask({ id: 'b', title: 'Beta task', status: 'done', due: '2030-02-01' }),
+        makeTask({ id: 'z', title: 'Old', status: 'done', archived: true })
+      ]
+    },
     settings: {
       priorityIcons: 'chevrons',
       showTagColors: true,
@@ -84,22 +75,11 @@ function model(overrides: Partial<ViewModel> = {}): ViewModel {
 }
 
 describe('snapshot table', () => {
-  it('lists the tree in order with a project column for several projects', () => {
+  it('lists the tree in order', () => {
     const host = document.body.createDiv()
     renderSnapshotTable(host, model())
     const headers = Array.from(host.querySelectorAll('thead th')).map((th) => th.textContent?.trim())
-    expect(headers).toEqual([
-      '',
-      'Task ↑',
-      'Project',
-      'Status',
-      'Priority',
-      'Assignees',
-      'Due',
-      'Progress',
-      'Time',
-      'Sprint'
-    ])
+    expect(headers).toEqual(['', 'Task ↑', 'Status', 'Priority', 'Assignees', 'Due', 'Progress', 'Time', 'Sprint'])
     const rows = Array.from(host.querySelectorAll('tbody tr')).map((tr) => (tr as HTMLElement).dataset.taskId)
     expect(rows).toEqual(['b', 'm', 'a', 'c'])
     expect(host.querySelector('tr[data-task-id="a"] .pm-task-title-text')?.textContent).toBe('Parent')

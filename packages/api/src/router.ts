@@ -80,13 +80,11 @@ async function route(req: HttpRequest, host: HttpHost): Promise<HttpResponse> {
     return { status: 405, headers: { allow: 'POST, DELETE' } }
   }
 
-  if (path === '/v1/projects' && method === 'GET') return json(200, await api.listProjects())
+  if (path === '/v1/project' && method === 'GET') return json(200, await api.getProject())
 
-  if ((p = match('/v1/projects/:id', path)) && method === 'GET') return json(200, await api.getProject(p['id']))
-
-  if ((p = match('/v1/projects/:id/tasks', path))) {
-    if (method === 'GET') return json(200, await api.listTasks(p['id'], req.query['includeArchived'] === 'true'))
-    if (method === 'POST') return json(201, await api.createTask(p['id'], req.body))
+  if (path === '/v1/tasks') {
+    if (method === 'GET') return json(200, await api.listTasks(req.query['includeArchived'] === 'true'))
+    if (method === 'POST') return json(201, await api.createTask(req.body))
   }
 
   if ((p = match('/v1/tasks/:id', path))) {

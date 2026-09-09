@@ -18,12 +18,11 @@ import { DueDateCell } from '../composites/cells/DueDateCell'
 import { ExpandCell } from '../composites/cells/ExpandCell'
 import { PriorityCell } from '../composites/cells/PriorityCell'
 import { ProgressCell } from '../composites/cells/ProgressCell'
-import { ProjectCell } from '../composites/cells/ProjectCell'
 import { StatusCell } from '../composites/cells/StatusCell'
 import { TimeCell } from '../composites/cells/TimeCell'
 import { TitleCell } from '../composites/cells/TitleCell'
 import { childTreeGuides } from '../composites/treeGuides'
-import { allTasks, configOf, customFieldColumns, isMulti, mergedConfig, projectOf, type ViewModel } from './model'
+import type { ViewModel } from './model'
 import { compareTask, type SortKey } from './tableSort'
 
 interface TreeRow extends FlatTask {
@@ -39,9 +38,9 @@ const noSave = async (): Promise<void> => {}
  * filtered out to the top level; it keeps its depth for indentation.
  */
 export function tableRows(model: ViewModel): TreeRow[] {
-  const config = mergedConfig(model)
+  const config = model.project.config
   const hasActiveFilter = isFilterActive(model.filter)
-  const flat = applyTaskFilterFlat(flattenTasks(allTasks(model)), model.filter, config.statuses)
+  const flat = applyTaskFilterFlat(flattenTasks(model.project.tasks), model.filter, config.statuses)
   const filteredIds = new Set(flat.map((f) => f.task.id))
 
   const childrenByParent = new Map<string | null, FlatTask[]>()
@@ -84,9 +83,8 @@ function customFieldValue(cf: CustomFieldDef, val: unknown): CustomFieldValue {
 
 /** The table view without any way to change it: no selection, no editing, no actions. */
 export function renderSnapshotTable(container: HTMLElement, model: ViewModel): HTMLElement {
-  const config = mergedConfig(model)
-  const multi = isMulti(model)
-  const customFields = customFieldColumns(model)
+  const config = model.project.config
+  const customFields = config.customFields
 
   const wrapper = container.createDiv('pm-table-wrapper')
   wrapper.setAttr('data-borders', model.settings.lineBorders)
@@ -96,7 +94,6 @@ export function renderSnapshotTable(container: HTMLElement, model: ViewModel): H
   const cols: { key: SortKey | null; label: string; width: string }[] = [
     { key: null, label: '', width: '32px' },
     { key: 'title', label: 'Task', width: 'auto' },
-    ...(multi ? [{ key: null, label: 'Project', width: '130px' }] : []),
     { key: 'status', label: 'Status', width: '130px' },
     { key: 'priority', label: 'Priority', width: '110px' },
     { key: 'assignees', label: 'Assignees', width: '140px' },
@@ -116,9 +113,7 @@ export function renderSnapshotTable(container: HTMLElement, model: ViewModel): H
   const tbody = table.createEl('tbody')
   for (const flat of tableRows(model)) {
     const { task, depth } = flat
-    const owner = projectOf(model, task.id)
-    const ownConfig = configOf(model, task.id)
-    const isDone = isTerminalStatus(task.status, ownConfig.statuses)
+    const isDone = isTerminalStatus(task.status, config.statuses)
     const statusConfig = getStatusConfig(config.statuses, task.status)
 
     const { el: row } = new TaskRow(tbody, {
@@ -139,7 +134,6 @@ export function renderSnapshotTable(container: HTMLElement, model: ViewModel): H
       onTitleSave: noSave,
       onAddSubtask: noop
     })
-    if (multi && owner) new ProjectCell(row, { title: owner.title, color: owner.color, onClick: noop })
     new StatusCell(row, { task, statuses: config.statuses, onChange: noop })
     new PriorityCell(row, {
       task,
@@ -151,7 +145,7 @@ export function renderSnapshotTable(container: HTMLElement, model: ViewModel): H
       row,
       task.assignees.map((raw) => ({ name: displayName(raw) }))
     )
-    new DueDateCell(row, { task, urgency: dueUrgency(task, ownConfig.statuses), onSave: noSave })
+    new DueDateCell(row, { task, urgency: dueUrgency(task, config.statuses), onSave: noSave })
     new ProgressCell(row, {
       value: task.progress,
       color: statusConfig?.color ?? 'var(--interactive-accent)',

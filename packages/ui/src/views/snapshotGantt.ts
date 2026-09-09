@@ -1,7 +1,6 @@
 import { type GanttGranularity, type Task, applyTaskFilterPromote, flattenTasks, today } from '@system-commons/core'
 import { svgEl } from '../dom'
 import { SegmentedControl } from '../primitives/SegmentedControl'
-import { renderProjectChip } from '../composites/projectChip'
 import { renderStatusDot } from '../StatusBadge'
 import {
   barColor,
@@ -15,7 +14,7 @@ import type { GanttCanvas } from '../gantt/canvas'
 import { renderGridLines, renderTodayLine } from '../gantt/canvas'
 import { renderTimelineHeader } from '../gantt/header'
 import { HEADER_HEIGHT, LABEL_WIDTH, ROW_HEIGHT, buildTimelineConfig, dateToX } from '../gantt/TimelineConfig'
-import { allTasks, isMulti, mergedConfig, projectOf, type ViewModel } from './model'
+import type { ViewModel } from './model'
 
 const GRANULARITIES: { id: GanttGranularity; label: string }[] = [
   { id: 'day', label: 'Day' },
@@ -25,10 +24,8 @@ const GRANULARITIES: { id: GanttGranularity; label: string }[] = [
   { id: 'year', label: 'Year' }
 ]
 
-const noop = (): void => {}
-
 function visibleTasks(model: ViewModel): Task[] {
-  return applyTaskFilterPromote(allTasks(model), model.filter, mergedConfig(model).statuses)
+  return applyTaskFilterPromote(model.project.tasks, model.filter, model.project.config.statuses)
 }
 
 function renderLabel(container: HTMLElement, model: ViewModel, task: Task, depth: number): void {
@@ -36,12 +33,8 @@ function renderLabel(container: HTMLElement, model: ViewModel, task: Task, depth
   el.setCssStyles({ height: `${ROW_HEIGHT}px`, paddingLeft: `${depth * 18 + 8}px` })
   el.dataset.taskId = task.id
   el.createSpan({ cls: 'pm-gantt-label-spacer' })
-  renderStatusDot(el, task.status, mergedConfig(model).statuses, 'pm-gantt-label-dot')
+  renderStatusDot(el, task.status, model.project.config.statuses, 'pm-gantt-label-dot')
   el.createSpan({ text: task.title, cls: 'pm-gantt-label-title' })
-  if (isMulti(model)) {
-    const owner = projectOf(model, task.id)
-    if (owner) renderProjectChip(el, { title: owner.title, color: owner.color, onClick: noop })
-  }
   if (task.progress > 0) el.createSpan({ text: `${task.progress}%`, cls: 'pm-gantt-label-progress' })
 }
 
@@ -49,7 +42,7 @@ function renderBody(container: HTMLElement, model: ViewModel, granularity: Gantt
   const tasks = visibleTasks(model)
   const rows = flattenTasks(tasks).map((f) => ({ task: f.task, depth: f.depth }))
   const cfg = buildTimelineConfig(tasks, granularity)
-  const statuses = mergedConfig(model).statuses
+  const statuses = model.project.config.statuses
 
   const wrapper = container.createDiv('pm-gantt-wrapper')
   const leftPanel = wrapper.createDiv('pm-gantt-left')

@@ -98,7 +98,7 @@ describe('parseTaskMove', () => {
     rejects(() => parseTaskMove({}), 'nothing to move')
     rejects(() => parseTaskMove({ before: 'a', after: 'b' }), 'pass before or after, not both')
     expect(parseTaskMove({ parentId: null })).toEqual({ parentId: null })
-    expect(parseTaskMove({ projectId: 'p2', after: 't9' })).toEqual({ projectId: 'p2', after: 't9' })
+    expect(parseTaskMove({ after: 't9' })).toEqual({ after: 't9' })
   })
 })
 
@@ -119,14 +119,13 @@ describe('taskResources', () => {
     const child = makeTask({ id: 'c', title: 'Child' })
     const archived = makeTask({ id: 'z', title: 'Old', archived: true })
     project.tasks = [makeTask({ id: 'a', title: 'A', subtasks: [child] }), archived, makeTask({ id: 'b', title: 'B' })]
-    const rows = taskResources(project, 'pid', false)
+    const rows = taskResources(project, false)
     expect(rows.map((r) => [r.id, r.parentId, r.position])).toEqual([
       ['a', null, 0],
       ['c', 'a', 0],
       ['b', null, 2]
     ])
-    expect(taskResources(project, 'pid', true).map((r) => r.id)).toEqual(['a', 'c', 'z', 'b'])
-    expect(rows[0].projectId).toBe('pid')
+    expect(taskResources(project, true).map((r) => r.id)).toEqual(['a', 'c', 'z', 'b'])
     expect(rows[0].archived).toBe(false)
   })
 })

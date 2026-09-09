@@ -31,35 +31,35 @@ describe('handleHttp', () => {
   })
 
   it('refuses everything else without the token', async () => {
-    const res = await handleHttp(request('GET', '/v1/projects', { headers: {} }), host)
+    const res = await handleHttp(request('GET', '/v1/project', { headers: {} }), host)
     expect(res.status).toBe(401)
     expect(api.calls).toEqual([])
   })
 
-  it('lists and reads projects and tasks', async () => {
-    expect((await handleHttp(request('GET', '/v1/projects'), host)).body).toEqual([
-      expect.objectContaining({ id: 'p1', title: 'Demo', taskCount: 2, doneCount: 1 })
-    ])
-    expect((await handleHttp(request('GET', '/v1/projects/p1'), host)).body).toMatchObject({
+  it('reads the project and its tasks', async () => {
+    expect((await handleHttp(request('GET', '/v1/project'), host)).body).toMatchObject({
       id: 'p1',
+      title: 'Demo',
+      taskCount: 2,
+      doneCount: 1,
       statuses: expect.any(Array)
     })
-    const tasks = await handleHttp(request('GET', '/v1/projects/p1/tasks'), host)
+    const tasks = await handleHttp(request('GET', '/v1/tasks'), host)
     expect((tasks.body as unknown[]).length).toBe(2)
     expect((await handleHttp(request('GET', '/v1/tasks/t2'), host)).body).toMatchObject({ id: 't2', position: 1 })
   })
 
   it('maps client mistakes to statuses', async () => {
-    expect((await handleHttp(request('GET', '/v1/projects/nope'), host)).status).toBe(404)
+    expect((await handleHttp(request('GET', '/v1/projects'), host)).status).toBe(404)
     expect((await handleHttp(request('GET', '/v1/nothing/here'), host)).status).toBe(404)
-    const bad = await handleHttp(request('POST', '/v1/projects/p1/tasks', { body: { title: '' } }), host)
+    const bad = await handleHttp(request('POST', '/v1/tasks', { body: { title: '' } }), host)
     expect(bad.status).toBe(400)
     expect(bad.body).toEqual({ error: { code: 'invalid', message: 'title must not be empty' } })
   })
 
   it('creates, updates with If-Match, moves, archives and deletes', async () => {
     const created = await handleHttp(
-      request('POST', '/v1/projects/p1/tasks', { body: { title: 'Third', due: '2030-01-02' } }),
+      request('POST', '/v1/tasks', { body: { title: 'Third', due: '2030-01-02' } }),
       host
     )
     expect(created.status).toBe(201)
