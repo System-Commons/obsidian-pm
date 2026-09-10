@@ -1,11 +1,11 @@
 import type { App } from 'obsidian'
-import { TFile, TFolder, normalizePath } from 'obsidian'
+import { TFolder, normalizePath } from 'obsidian'
 import { sanitizeFileName } from '@system-commons/core'
 
-/** A project owns a folder named after it, holding its note and its `_tasks/`. */
+/** The project note sits directly in the project folder, with `_tasks/` beside it. */
 export function projectFilePath(projectTitle: string, folder: string): string {
   const name = sanitizeFileName(projectTitle)
-  return normalizePath(`${folder}/${name}/${name}.md`)
+  return normalizePath(folder ? `${folder}/${name}.md` : `${name}.md`)
 }
 
 /** The task storage folder beside the project note. */
@@ -15,25 +15,6 @@ export const TASK_FOLDER_NAME = '_tasks'
 export function folderOf(path: string): string {
   const at = path.lastIndexOf('/')
   return at === -1 ? '' : path.slice(0, at)
-}
-
-function nameOf(path: string): string {
-  return path.slice(path.lastIndexOf('/') + 1).replace(/\.md$/, '')
-}
-
-/**
- * The folder a project owns, holding its note and its `_tasks/`. A project note named
- * after its folder owns it; so does one whose folder nobody else claims and which already
- * holds task storage, which is what a note renamed on its own looks like. Null when the
- * note sits in a folder that is not its own.
- */
-export function projectFolderOf(app: App, projectPath: string): string | null {
-  const dir = folderOf(projectPath)
-  if (!dir) return null
-  const folderName = nameOf(dir)
-  if (folderName === nameOf(projectPath)) return dir
-  if (app.vault.getAbstractFileByPath(`${dir}/${folderName}.md`) instanceof TFile) return null
-  return app.vault.getAbstractFileByPath(`${dir}/${TASK_FOLDER_NAME}`) instanceof TFolder ? dir : null
 }
 
 /** Where the project's task notes live: `_tasks/` beside the note, wherever the note sits. */
@@ -62,9 +43,9 @@ export async function moveTaskAttachmentFolder(
 }
 
 /**
- * Keeps a renamed project note attached to its tasks. A note renamed inside the folder it
- * owns takes the folder with it, so the pair keeps matching; a note moved to another folder
- * takes its `_tasks/` along. Returns where the note ended up.
+ * Keeps a renamed project note attached to its tasks. A note renamed in place keeps its
+ * `_tasks/` where it is; a note moved to another folder takes it along. Returns where
+ * the note ended up.
  */
 export async function keepProjectStorageWithNote(
   app: App,
@@ -72,18 +53,6 @@ export async function keepProjectStorageWithNote(
   newProjectPath: string,
   markSelfWrite: (path: string) => void
 ): Promise<string> {
-  const oldDir = folderOf(oldProjectPath)
-  if (folderOf(newProjectPath) === oldDir) {
-    if (!oldDir || nameOf(oldDir) !== nameOf(oldProjectPath)) return newProjectPath
-    const target = normalizePath(`${folderOf(oldDir)}/${nameOf(newProjectPath)}`)
-    const folder = app.vault.getAbstractFileByPath(oldDir)
-    if (!(folder instanceof TFolder) || app.vault.getAbstractFileByPath(target)) return newProjectPath
-    markSelfWrite(oldDir)
-    markSelfWrite(target)
-    await app.vault.rename(folder, target)
-    return normalizePath(`${target}/${nameOf(newProjectPath)}.md`)
-  }
-
   const from = projectTaskFolder(oldProjectPath)
   const to = projectTaskFolder(newProjectPath)
   const folder = app.vault.getAbstractFileByPath(from)
@@ -110,7 +79,7 @@ export function resolveVaultLink(app: App, raw: unknown, sourcePath: string): st
 
 /**
  * `getAbstractFileByPath` is case-sensitive while macOS and Windows filesystems are not,
- * so a settings value of `projects` misses an existing `Projects/` and `createFolder` then
+ * so a settings value of `project` misses an existing `Project/` and `createFolder` then
  * throws "Folder already exists". Swallowing that also covers concurrent callers racing.
  */
 export async function ensureFolder(app: App, folderPath: string): Promise<void> {

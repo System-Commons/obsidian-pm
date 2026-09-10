@@ -53,7 +53,6 @@ import {
   folderOf,
   keepProjectStorageWithNote,
   moveTaskAttachmentFolder,
-  projectFolderOf,
   projectTaskFolder,
   projectFilePath
 } from './vaultFs'
@@ -573,7 +572,7 @@ export class ProjectStore implements TaskSource {
     await this.saveProject(project)
   }
 
-  /** A title edited in the settings view takes the note, and the folder it owns, with it. */
+  /** A title edited in the settings view renames the note; its task folder stays beside it. */
   private async renameProjectFile(project: Project, currentPath: string): Promise<void> {
     const file = this.app.vault.getAbstractFileByPath(currentPath)
     if (!(file instanceof TFile)) return
@@ -582,14 +581,6 @@ export class ProjectStore implements TaskSource {
     const dir = folderOf(currentPath)
     const target = normalizePath(dir ? `${dir}/${desiredBasename}.md` : `${desiredBasename}.md`)
     if (target === currentPath || this.app.vault.getAbstractFileByPath(target)) return
-
-    // The note takes its folder with it; skip the whole rename if that folder's new
-    // name is already taken, rather than leaving the note and its folder mismatched.
-    const own = projectFolderOf(this.app, currentPath)
-    if (own) {
-      const folderTarget = normalizePath(`${folderOf(own)}/${desiredBasename}`)
-      if (folderTarget !== own && this.app.vault.getAbstractFileByPath(folderTarget)) return
-    }
 
     this.markSelfWrite(currentPath)
     this.markSelfWrite(target)
@@ -606,8 +597,8 @@ export class ProjectStore implements TaskSource {
     try {
       project.updatedAt = new Date().toISOString()
 
-      const own = projectFolderOf(this.app, project.filePath)
-      if (own) await this.ensureFolder(own)
+      const dir = folderOf(project.filePath)
+      if (dir) await this.ensureFolder(dir)
       const taskFolder = projectTaskFolder(project.filePath)
       await this.ensureFolder(taskFolder)
 
@@ -1198,9 +1189,8 @@ export class ProjectStore implements TaskSource {
   }
 
   /**
-   * The task folder and the note go; the folder around them only when it was the
-   * project's own and nothing else is left in it. A note moved into a folder full of
-   * other notes must not take that folder with it.
+   * The task folder and the note go; the folder around them only when nothing else is
+   * left in it, so a people folder or any other note beside the project survives.
    */
   async deleteProject(project: Project): Promise<void> {
     const tasks = this.app.vault.getAbstractFileByPath(projectTaskFolder(project.filePath))
@@ -1213,8 +1203,8 @@ export class ProjectStore implements TaskSource {
       this.markSelfWrite(project.filePath)
       await this.app.fileManager.trashFile(file)
     }
-    const own = projectFolderOf(this.app, project.filePath)
-    const folder = own ? this.app.vault.getAbstractFileByPath(own) : null
+    const dir = folderOf(project.filePath)
+    const folder = dir ? this.app.vault.getAbstractFileByPath(dir) : null
     if (folder instanceof TFolder && folder.children.length === 0) await this.app.fileManager.trashFile(folder)
     this.clearDirty(project)
     this.saveQueues.delete(project.filePath)

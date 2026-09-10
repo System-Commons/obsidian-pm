@@ -225,7 +225,7 @@ BRAT checks this repository for new releases and updates the plugin automaticall
 
 ## Data format
 
-Everything is stored as Markdown files with YAML frontmatter in a configurable vault folder (default: `Projects/`). Plain text — readable, portable, and version-controllable.
+Everything is stored as Markdown files with YAML frontmatter in a configurable vault folder (default: `Project/`): the project note, a `_tasks/` folder with one note per task, and by default a `People/` folder for person notes. Plain text — readable, portable, and version-controllable.
 
 ```yaml
 ---

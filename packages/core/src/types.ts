@@ -237,8 +237,8 @@ export const LOCAL_API_PORT_BASE = 27140
 export const LOCAL_API_PORT_SPAN = 100
 
 export const DEFAULT_SETTINGS: PMSettings = {
-  projectsFolder: 'Projects',
-  peopleFolder: 'People',
+  projectsFolder: 'Project',
+  peopleFolder: 'Project/People',
   excludedFolders: [],
   defaultView: 'table',
   ganttGranularity: 'week',

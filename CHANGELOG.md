@@ -18,6 +18,8 @@ One vault is one project. The plugin no longer manages several projects side by 
 - The local API and MCP server address the one project: `GET /v1/project`, `GET /v1/tasks`, `POST /v1/tasks`, and the `get_project`, `list_tasks` and `create_task` tools take no project id. Task resources and the change feed no longer carry a project id. The project resource is `project-manager://project`
 - The HTML export format is version 2 and carries one project. Pages exported earlier still open, since each embeds its own viewer
 - Task notes no longer carry a `projectId` property; a task belongs to the project by sitting in its `_tasks` folder
+- A new project note is created directly in the project folder, as `Project/<name>.md` beside `Project/_tasks/`, rather than in a folder of its own. Renaming the note no longer renames the folder around it. Existing notes stay where they are
+- The default project folder is `Project` and the default people folder is `Project/People`
 - The internal packages, the MCP resource URIs (`project-manager://`) and the HTML export format id no longer carry the upstream name
 
 ### Removed

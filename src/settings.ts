@@ -45,7 +45,7 @@ export class PMSettingTab extends PluginSettingTab {
             control: {
               type: 'folder',
               key: 'projectsFolder',
-              defaultValue: 'Projects',
+              defaultValue: DEFAULT_SETTINGS.projectsFolder,
               placeholder: 'Vault root'
             }
           },
@@ -56,7 +56,7 @@ export class PMSettingTab extends PluginSettingTab {
             control: {
               type: 'folder',
               key: 'peopleFolder',
-              defaultValue: 'People',
+              defaultValue: DEFAULT_SETTINGS.peopleFolder,
               placeholder: 'Whole vault'
             }
           },

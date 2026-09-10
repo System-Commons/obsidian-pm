@@ -1,5 +1,5 @@
 import type { App, Plugin } from 'obsidian'
-import { TFile, TFolder } from 'obsidian'
+import { TFile } from 'obsidian'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { makeFakeApp, type FakeVault } from '../../test/fakeVault'
 import {
@@ -453,8 +453,8 @@ describe('ProjectStore task attachments', () => {
 
     const file = await store.saveTaskAttachment(project, task, 'pic.png', new ArrayBuffer(4))
 
-    expect(file.path).toBe('Projects/Imgs/_tasks/shot/attachments/pic.png')
-    expect(vault.getAbstractFileByPath('Projects/Imgs/_tasks/shot/attachments/pic.png')).not.toBeNull()
+    expect(file.path).toBe('Projects/_tasks/shot/attachments/pic.png')
+    expect(vault.getAbstractFileByPath('Projects/_tasks/shot/attachments/pic.png')).not.toBeNull()
   })
 
   it('disambiguates a colliding attachment name', async () => {
@@ -465,8 +465,8 @@ describe('ProjectStore task attachments', () => {
     const first = await store.saveTaskAttachment(project, task, 'pic.png', new ArrayBuffer(4))
     const second = await store.saveTaskAttachment(project, task, 'pic.png', new ArrayBuffer(4))
 
-    expect(first.path).toBe('Projects/Imgs/_tasks/shot/attachments/pic.png')
-    expect(second.path).toBe('Projects/Imgs/_tasks/shot/attachments/pic 1.png')
+    expect(first.path).toBe('Projects/_tasks/shot/attachments/pic.png')
+    expect(second.path).toBe('Projects/_tasks/shot/attachments/pic 1.png')
   })
 
   it('trashes the attachments folder when the task is deleted', async () => {
@@ -477,8 +477,8 @@ describe('ProjectStore task attachments', () => {
 
     await store.deleteTask(project, task.id)
 
-    expect(vault.getAbstractFileByPath('Projects/Imgs/_tasks/shot/attachments/pic.png')).toBeNull()
-    expect(vault.getAbstractFileByPath('Projects/Imgs/_tasks/shot')).toBeNull()
+    expect(vault.getAbstractFileByPath('Projects/_tasks/shot/attachments/pic.png')).toBeNull()
+    expect(vault.getAbstractFileByPath('Projects/_tasks/shot')).toBeNull()
   })
 
   it('moves the attachments folder when the task is renamed', async () => {
@@ -489,8 +489,8 @@ describe('ProjectStore task attachments', () => {
 
     await store.updateTask(project, task.id, { title: 'Photo' })
 
-    expect(vault.getAbstractFileByPath('Projects/Imgs/_tasks/shot/attachments/pic.png')).toBeNull()
-    expect(vault.getAbstractFileByPath('Projects/Imgs/_tasks/photo/attachments/pic.png')).not.toBeNull()
+    expect(vault.getAbstractFileByPath('Projects/_tasks/shot/attachments/pic.png')).toBeNull()
+    expect(vault.getAbstractFileByPath('Projects/_tasks/photo/attachments/pic.png')).not.toBeNull()
   })
 
   it('moves the attachments folder when the task is archived and back when unarchived', async () => {
@@ -500,12 +500,12 @@ describe('ProjectStore task attachments', () => {
     await store.saveTaskAttachment(project, task, 'pic.png', new ArrayBuffer(4))
 
     await store.archiveTask(project, task.id)
-    expect(vault.getAbstractFileByPath('Projects/Imgs/_tasks/shot/attachments/pic.png')).toBeNull()
-    expect(vault.getAbstractFileByPath('Projects/Imgs/_tasks/Archive/shot/attachments/pic.png')).not.toBeNull()
+    expect(vault.getAbstractFileByPath('Projects/_tasks/shot/attachments/pic.png')).toBeNull()
+    expect(vault.getAbstractFileByPath('Projects/_tasks/Archive/shot/attachments/pic.png')).not.toBeNull()
 
     await store.unarchiveTask(project, task.id)
-    expect(vault.getAbstractFileByPath('Projects/Imgs/_tasks/Archive/shot/attachments/pic.png')).toBeNull()
-    expect(vault.getAbstractFileByPath('Projects/Imgs/_tasks/shot/attachments/pic.png')).not.toBeNull()
+    expect(vault.getAbstractFileByPath('Projects/_tasks/Archive/shot/attachments/pic.png')).toBeNull()
+    expect(vault.getAbstractFileByPath('Projects/_tasks/shot/attachments/pic.png')).not.toBeNull()
   })
 })
 
@@ -537,7 +537,7 @@ describe('ProjectStore archiving', () => {
 
     for (const task of [parent, child]) {
       expect(task.archived).toBe(false)
-      expect(task.filePath).toBe(`Projects/Tree/_tasks/${task.title.toLowerCase()}.md`)
+      expect(task.filePath).toBe(`Projects/_tasks/${task.title.toLowerCase()}.md`)
       expect(vault.getAbstractFileByPath(expectDefined(task.filePath))).not.toBeNull()
     }
   })
@@ -569,7 +569,7 @@ describe('ProjectStore archiving', () => {
     await store.archiveTask(project, parent.id)
 
     expect(child.archived).toBe(true)
-    expect(child.filePath).toBe('Projects/Tree/_tasks/Archive/child.md')
+    expect(child.filePath).toBe('Projects/_tasks/Archive/child.md')
   })
 })
 
@@ -861,8 +861,8 @@ describe('ProjectStore concurrent-save race', () => {
     const second = store.updateTask(project, b.id, { title: 'B new' })
     await Promise.all([first, second])
 
-    expect(vault.getAbstractFileByPath('Projects/Race/_tasks/a-new.md')).not.toBeNull()
-    expect(vault.getAbstractFileByPath('Projects/Race/_tasks/b-new.md')).not.toBeNull()
+    expect(vault.getAbstractFileByPath('Projects/_tasks/a-new.md')).not.toBeNull()
+    expect(vault.getAbstractFileByPath('Projects/_tasks/b-new.md')).not.toBeNull()
     expect(vault.getAbstractFileByPath(aOldPath)).toBeNull()
     expect(vault.getAbstractFileByPath(bOldPath)).toBeNull()
   })
@@ -957,7 +957,7 @@ describe('ProjectStore.importNoteAsTask', () => {
     expect(result).toBe('imported')
     expect(vault.getAbstractFileByPath('Notes/Idea.md')).toBeInstanceOf(TFile)
 
-    const created = vault.getAbstractFileByPath('Projects/Import/_tasks/idea.md')
+    const created = vault.getAbstractFileByPath('Projects/_tasks/idea.md')
     if (!(created instanceof TFile)) throw new Error('imported task file missing')
     const content = await vault.read(created)
     expect(content).toContain('pm-task: true')
@@ -971,7 +971,7 @@ describe('ProjectStore.importNoteAsTask', () => {
     expect(result).toBe('imported')
     expect(vault.getAbstractFileByPath('Notes/Idea.md')).toBeNull()
 
-    const moved = vault.getAbstractFileByPath('Projects/Import/_tasks/idea.md')
+    const moved = vault.getAbstractFileByPath('Projects/_tasks/idea.md')
     if (!(moved instanceof TFile)) throw new Error('imported task file missing')
     const content = await vault.read(moved)
     expect(content).toContain('pm-task: true')
@@ -989,7 +989,7 @@ describe('ProjectStore.importNoteAsTask', () => {
 
   it('skips notes that are already tasks', async () => {
     const { store, vault, project } = await importInto('copy')
-    const existing = vault.getAbstractFileByPath('Projects/Import/_tasks/idea.md')
+    const existing = vault.getAbstractFileByPath('Projects/_tasks/idea.md')
     if (!(existing instanceof TFile)) throw new Error('imported task file missing')
     const before = await vault.read(existing)
 
@@ -1039,7 +1039,7 @@ describe('ProjectStore.importTaskForest', () => {
     const task = makeTask({ title: 'Old', archived: true })
 
     await store.importTaskForest(project, [task], new Map([[task.id, source]]), 'copy')
-    expect(vault.getAbstractFileByPath('Projects/Arch/_tasks/Archive/old.md')).toBeInstanceOf(TFile)
+    expect(vault.getAbstractFileByPath('Projects/_tasks/Archive/old.md')).toBeInstanceOf(TFile)
     expect(vault.getAbstractFileByPath('Notes/Old.md')).toBeInstanceOf(TFile)
   })
 })
@@ -1117,106 +1117,107 @@ describe('ProjectStore project folders', () => {
     return made
   }
 
-  it('creates a project in a folder of its own', async () => {
+  const taskFileName = (task: Task): string => expectDefined(task.filePath).split('/').pop() ?? ''
+
+  it('creates the note in the project folder with its tasks beside it', async () => {
     const { store, app } = newStore()
-    const project = await store.createProject('Roadmap', 'Projects')
+    const project = await store.createProject('Roadmap', 'Project')
     const task = await addNamed(store, project, 'Design')
 
-    expect(project.filePath).toBe('Projects/Roadmap/Roadmap.md')
-    expect(task.filePath).toBe('Projects/Roadmap/_tasks/design.md')
-    expect(app.vault.getAbstractFileByPath('Projects/Roadmap/_tasks/design.md')).toBeInstanceOf(TFile)
+    expect(project.filePath).toBe('Project/Roadmap.md')
+    expect(task.filePath).toBe('Project/_tasks/design.md')
+    expect(app.vault.getAbstractFileByPath('Project/_tasks/design.md')).toBeInstanceOf(TFile)
   })
 
-  it('trashes the whole folder when a project is deleted', async () => {
+  it('creates the note at the vault root when no folder is set', async () => {
+    const { store } = newStore()
+    const project = await store.createProject('Roadmap', '')
+    const task = await addNamed(store, project, 'Design')
+
+    expect(project.filePath).toBe('Roadmap.md')
+    expect(task.filePath).toBe('_tasks/design.md')
+  })
+
+  it('trashes the note, its task folder and the folder they emptied when the project is deleted', async () => {
     const { store, app } = newStore()
-    const project = await store.createProject('Doomed', 'Projects')
+    const project = await store.createProject('Doomed', 'Project')
     await addNamed(store, project, 'Card')
 
     await store.deleteProject(project)
 
-    expect(app.vault.getAbstractFileByPath('Projects/Doomed')).toBeNull()
+    expect(app.vault.getAbstractFileByPath('Project/Doomed.md')).toBeNull()
+    expect(app.vault.getAbstractFileByPath('Project/_tasks')).toBeNull()
+    expect(app.vault.getAbstractFileByPath('Project')).toBeNull()
   })
 
-  it('renames the folder when the project note is renamed', async () => {
+  it('spares a folder still holding other notes when the project is deleted', async () => {
+    const { store, app } = newStore()
+    const project = await store.createProject('Doomed', 'Project')
+    await app.vault.create('Project/People/Ana.md', '')
+
+    await store.deleteProject(project)
+
+    expect(app.vault.getAbstractFileByPath('Project/Doomed.md')).toBeNull()
+    expect(app.vault.getAbstractFileByPath('Project/People/Ana.md')).toBeInstanceOf(TFile)
+  })
+
+  it('keeps the tasks where they are when the note is renamed in place', async () => {
     const { store, app } = syncedStore()
-    const project = await store.createProject('Alpha', 'Projects')
+    const project = await store.createProject('Alpha', 'Project')
     const task = await addNamed(store, project, 'Card')
 
-    await app.fileManager.renameFile(fileAt(app, project.filePath), 'Projects/Alpha/Beta.md')
+    await app.fileManager.renameFile(fileAt(app, project.filePath), 'Project/Beta.md')
     await flush()
 
-    expect(app.vault.getAbstractFileByPath('Projects/Beta/Beta.md')).toBeInstanceOf(TFile)
-    expect(project.filePath).toBe('Projects/Beta/Beta.md')
-    expect(
-      app.vault.getAbstractFileByPath(`Projects/Beta/_tasks/${expectDefined(task.filePath).split('/').pop()}`)
-    ).toBeInstanceOf(TFile)
+    expect(project.filePath).toBe('Project/Beta.md')
+    expect(app.vault.getAbstractFileByPath(`Project/_tasks/${taskFileName(task)}`)).toBeInstanceOf(TFile)
   })
 
-  it('renames the note and its folder when the title is edited', async () => {
+  it('renames the note when the title is edited', async () => {
     const { store, app } = syncedStore()
-    const project = await store.createProject('Alpha', 'Projects')
+    const project = await store.createProject('Alpha', 'Project')
     const task = await addNamed(store, project, 'Card')
 
     await store.updateProject(project, { title: 'Beta' })
     await flush()
 
-    expect(project.filePath).toBe('Projects/Beta/Beta.md')
-    expect(app.vault.getAbstractFileByPath('Projects/Alpha')).toBeNull()
-    const content = await app.vault.cachedRead(fileAt(app, 'Projects/Beta/Beta.md'))
+    expect(project.filePath).toBe('Project/Beta.md')
+    expect(app.vault.getAbstractFileByPath('Project/Alpha.md')).toBeNull()
+    const content = await app.vault.cachedRead(fileAt(app, 'Project/Beta.md'))
     expect(content).toContain('title: "Beta"')
-    expect(
-      app.vault.getAbstractFileByPath(`Projects/Beta/_tasks/${expectDefined(task.filePath).split('/').pop()}`)
-    ).toBeInstanceOf(TFile)
+    expect(app.vault.getAbstractFileByPath(`Project/_tasks/${taskFileName(task)}`)).toBeInstanceOf(TFile)
   })
 
   it('leaves the note where it is when the new title collides with an existing note', async () => {
     const { store, app } = syncedStore()
-    await store.createProject('Beta', 'Projects')
-    const project = await store.createProject('Alpha', 'Projects')
+    await app.vault.create('Project/Beta.md', '# Not a project\n')
+    const project = await store.createProject('Alpha', 'Project')
 
     await store.updateProject(project, { title: 'Beta' })
     await flush()
 
-    expect(project.filePath).toBe('Projects/Alpha/Alpha.md')
+    expect(project.filePath).toBe('Project/Alpha.md')
     expect(project.title).toBe('Beta')
-    const content = await app.vault.cachedRead(fileAt(app, 'Projects/Alpha/Alpha.md'))
+    const content = await app.vault.cachedRead(fileAt(app, 'Project/Alpha.md'))
     expect(content).toContain('title: "Beta"')
   })
 
-  it('keeps a project attached to its tasks when its folder is renamed', async () => {
+  it('keeps the project attached to its tasks when the folder is renamed', async () => {
     const { store, app } = syncedStore()
-    const project = await store.createProject('Alpha', 'Projects')
+    const project = await store.createProject('Alpha', 'Project')
     await addNamed(store, project, 'Card')
 
-    const folder = expectDefined(app.vault.getAbstractFileByPath('Projects/Alpha'))
-    await app.vault.rename(folder, 'Projects/Gamma')
+    await app.vault.rename(expectDefined(app.vault.getAbstractFileByPath('Project')), 'Work')
     await flush()
 
-    // The note keeps its own name; the folder it sits in is what moved.
-    expect(app.vault.getAbstractFileByPath('Projects/Gamma/Alpha.md')).toBeInstanceOf(TFile)
-    expect(projectTaskFolder('Projects/Gamma/Alpha.md')).toBe('Projects/Gamma/_tasks')
-    expect(app.vault.getAbstractFileByPath('Projects/Gamma/_tasks/card.md')).toBeInstanceOf(TFile)
+    expect(app.vault.getAbstractFileByPath('Work/Alpha.md')).toBeInstanceOf(TFile)
+    expect(projectTaskFolder('Work/Alpha.md')).toBe('Work/_tasks')
+    expect(app.vault.getAbstractFileByPath('Work/_tasks/card.md')).toBeInstanceOf(TFile)
   })
 
-  it('leaves the task folder alone when a note renamed inside its project folder never owned its name', async () => {
+  it('takes the task folder along when the note moves to another folder', async () => {
     const { store, app } = syncedStore()
-    await app.vault.create(
-      'Projects/Alpha/Loose.md',
-      ['---', 'pm-project: true', 'id: p1', 'title: Loose', 'taskIds: []', '---', ''].join('\n')
-    )
-    await app.vault.createFolder('Projects/Alpha/_tasks')
-    await store.loadProjectByPath('Projects/Alpha/Loose.md')
-
-    await app.fileManager.renameFile(fileAt(app, 'Projects/Alpha/Loose.md'), 'Projects/Alpha/Renamed.md')
-    await flush()
-
-    expect(app.vault.getAbstractFileByPath('Projects/Alpha/_tasks')).toBeInstanceOf(TFolder)
-    expect(app.vault.getAbstractFileByPath('Projects/Alpha/Renamed_tasks')).toBeNull()
-  })
-
-  it('takes the task folder along when a project note leaves its folder', async () => {
-    const { store, app } = syncedStore()
-    const project = await store.createProject('Alpha', 'Projects')
+    const project = await store.createProject('Alpha', 'Project')
     await addNamed(store, project, 'Card')
 
     await app.fileManager.renameFile(fileAt(app, project.filePath), 'Work/Alpha.md')
@@ -1278,9 +1279,7 @@ describe('ProjectStore foreign frontmatter', () => {
     const { store, app } = newStore()
     const project = await store.createProject('Foreign', 'Projects')
     const task = await addNamed(store, project, 'Alpha')
-    await editOnDisk(app, 'Projects/Foreign/_tasks/alpha.md', (content) =>
-      content.replace('---\n', `---\n${TIME_ENTRIES}`)
-    )
+    await editOnDisk(app, 'Projects/_tasks/alpha.md', (content) => content.replace('---\n', `---\n${TIME_ENTRIES}`))
     return { store, app, project, task }
   }
 
@@ -1293,7 +1292,7 @@ describe('ProjectStore foreign frontmatter', () => {
     const { store, app, project, task } = await seeded()
     await store.updateTask(project, task.id, { status: 'in-progress' })
 
-    const fm = await frontmatterAt(app, 'Projects/Foreign/_tasks/alpha.md')
+    const fm = await frontmatterAt(app, 'Projects/_tasks/alpha.md')
     expect(fm.status).toBe('in-progress')
     expect(fm.timeEntries).toEqual(EXPECTED)
   })
@@ -1302,17 +1301,17 @@ describe('ProjectStore foreign frontmatter', () => {
     const { store, app, project, task } = await seeded()
     await store.updateTask(project, task.id, { description: 'Rewritten body' })
 
-    const fm = await frontmatterAt(app, 'Projects/Foreign/_tasks/alpha.md')
+    const fm = await frontmatterAt(app, 'Projects/_tasks/alpha.md')
     expect(fm.timeEntries).toEqual(EXPECTED)
-    expect(await app.vault.cachedRead(fileAt(app, 'Projects/Foreign/_tasks/alpha.md'))).toContain('Rewritten body')
+    expect(await app.vault.cachedRead(fileAt(app, 'Projects/_tasks/alpha.md'))).toContain('Rewritten body')
   })
 
   it("keeps another plugin's properties when the file is renamed", async () => {
     const { store, app, project, task } = await seeded()
     await store.updateTask(project, task.id, { title: 'Alpha renamed' })
 
-    expect(app.vault.getAbstractFileByPath('Projects/Foreign/_tasks/alpha.md')).toBeNull()
-    const fm = await frontmatterAt(app, 'Projects/Foreign/_tasks/alpha-renamed.md')
+    expect(app.vault.getAbstractFileByPath('Projects/_tasks/alpha.md')).toBeNull()
+    const fm = await frontmatterAt(app, 'Projects/_tasks/alpha-renamed.md')
     expect(fm.title).toBe('Alpha renamed')
     expect(fm.timeEntries).toEqual(EXPECTED)
   })
@@ -1320,10 +1319,10 @@ describe('ProjectStore foreign frontmatter', () => {
   it('still removes its own optional properties when they are cleared', async () => {
     const { store, app, project, task } = await seeded()
     await store.updateTask(project, task.id, { status: 'done' })
-    expect(await frontmatterAt(app, 'Projects/Foreign/_tasks/alpha.md')).toHaveProperty('completed')
+    expect(await frontmatterAt(app, 'Projects/_tasks/alpha.md')).toHaveProperty('completed')
 
     await store.updateTask(project, task.id, { status: 'todo' })
-    const fm = await frontmatterAt(app, 'Projects/Foreign/_tasks/alpha.md')
+    const fm = await frontmatterAt(app, 'Projects/_tasks/alpha.md')
     expect(fm).not.toHaveProperty('completed')
     expect(fm.timeEntries).toEqual(EXPECTED)
   })
@@ -1345,7 +1344,7 @@ describe('ProjectStore foreign frontmatter', () => {
     const note = await vault.create('Notes/Idea.md', `---\n${TIME_ENTRIES}---\nthe note body`)
 
     await store.importNoteAsTask(project, note, { status: 'todo', priority: 'low', handling: 'move' })
-    const fm = await frontmatterAt(app, 'Projects/Import/_tasks/idea.md')
+    const fm = await frontmatterAt(app, 'Projects/_tasks/idea.md')
     expect(fm['pm-task']).toBe(true)
     expect(fm.timeEntries).toEqual(EXPECTED)
   })

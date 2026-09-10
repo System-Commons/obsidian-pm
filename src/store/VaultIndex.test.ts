@@ -37,7 +37,7 @@ describe('VaultIndex', () => {
     const fake = makeFakeApp({ liveMetadataCache: true })
     vault = fake.vault
     app = fake.app as unknown as App
-    settings = { ...DEFAULT_SETTINGS }
+    settings = { ...DEFAULT_SETTINGS, projectsFolder: 'Projects' }
     index = new VaultIndex(app, () => settings)
   })
 
