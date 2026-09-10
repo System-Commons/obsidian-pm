@@ -521,7 +521,7 @@ describe('ProjectStore archiving', () => {
 
     for (const task of [parent, child, grandchild]) {
       expect(task.archived).toBe(true)
-      expect(task.filePath).toMatch(/^Projects\/Tree\/_tasks\/Archive\//)
+      expect(task.filePath).toMatch(/^Projects\/_tasks\/Archive\//)
       expect(vault.getAbstractFileByPath(expectDefined(task.filePath))).not.toBeNull()
     }
   })
